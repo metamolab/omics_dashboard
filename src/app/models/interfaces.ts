@@ -26,7 +26,7 @@ export interface ColumnClassification {
 export interface PreprocessingOptions {
   columnClassification: ColumnClassification;
   removeNullValues: boolean;
-  fillMissingValues: 'none' | 'mean' | 'median' | 'mode' | 'forward' | 'backward';
+  fillMissingValues: 'none' | 'mean' | 'median' | 'knn5';
   transformation: 'none' | 'scale' | 'center' | 'standardize' | 'log' | 'log2' | 'yeo-johnson';
   removeOutliers: boolean;
   outlierMethod: 'iqr' | 'zscore' | 'isolation';

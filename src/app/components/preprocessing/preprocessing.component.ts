@@ -267,50 +267,6 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
             }
           </div>
         </div>
-        <!-- Pulizia Dati -->
-        <div class="options-section">
-          <h2>Pulizia Dati</h2>
-          <div class="options-grid">
-            <div class="option-card">
-              <label class="option-label">
-                <input type="checkbox" [(ngModel)]="options.removeNullValues">
-                <span class="checkbox-custom"></span>
-                <div class="option-content">
-                  <h3>Rimuovi valori nulli</h3>
-                  <p>Elimina righe con valori mancanti</p>
-                </div>
-              </label>
-            </div>
-            <div class="fill-method-card">
-              <label for="fillMethod">Metodo di riempimento NA</label>
-              <select id="fillMethod" [(ngModel)]="options.fillMissingValues" class="select-input">
-                <option value="none">Non riempire</option>
-                <option value="mean">Media</option>
-                <option value="median">Mediana</option>
-                <option value="mode">Moda</option>
-                <option value="forward">Forward fill</option>
-                <option value="backward">Backward fill</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Trasformazioni -->
-        <div class="options-section">
-          <h2>Trasformazioni</h2>
-          <div class="options-card">
-            <label for="transformMethod">Metodo di trasformazione</label>
-            <select id="transformMethod" [(ngModel)]="options.transformation" class="select-input">
-              <option value="none">Nessuna trasformazione</option>
-              <option value="scale">Scala (0-1)</option>
-              <option value="center">Centra</option>
-              <option value="standardize">Standardizza (z-score)</option>
-              <option value="log">Log</option>
-              <option value="log2">Log2</option>
-              <option value="yeo-johnson">Yeo-Johnson</option>
-            </select>
-          </div>
-        </div>
 
         <!-- Gestione Outlier -->
         <div class="options-section">
@@ -336,6 +292,58 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
             </div>
           </div>
         </div>
+
+        <!-- Pulizia Dati -->
+        <div class="options-section">
+          <h2>Pulizia Dati</h2>
+          <div class="options-grid">
+            <div class="option-card">
+              <label class="option-label">
+                <input type="checkbox"
+                  [(ngModel)]="options.removeNullValues"
+                  [disabled]="options.fillMissingValues !== 'none'"
+                  (change)="onRemoveNullValuesChange()">
+                <span class="checkbox-custom"></span>
+                <div class="option-content">
+                  <h3>Rimuovi valori nulli</h3>
+                  <p>Elimina righe con valori mancanti</p>
+                </div>
+              </label>
+            </div>
+            <div class="fill-method-card">
+              <label for="fillMethod">Metodo di riempimento NA</label>
+              <select id="fillMethod"
+                [(ngModel)]="options.fillMissingValues"
+                class="select-input"
+                [disabled]="options.removeNullValues"
+                (change)="onFillMissingValuesChange()">
+                <option value="none">Non riempire</option>
+                <option value="mean">Media</option>
+                <option value="median">Mediana</option>
+                <option value="knn5">KNN 5</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trasformazioni -->
+        <div class="options-section">
+          <h2>Trasformazioni</h2>
+          <div class="options-card">
+            <label for="transformMethod">Metodo di trasformazione</label>
+            <select id="transformMethod" [(ngModel)]="options.transformation" class="select-input">
+              <option value="none">Nessuna trasformazione</option>
+              <option value="scale">Scala (0-1)</option>
+              <option value="center">Centra</option>
+              <option value="standardize">Standardizza (z-score)</option>
+              <option value="log">Log</option>
+              <option value="log2">Log2</option>
+              <option value="yeo-johnson">Yeo-Johnson</option>
+            </select>
+          </div>
+        </div>
+
+        
       </div>
 
         <!-- Action Buttons -->
@@ -353,32 +361,147 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
       </div>
     </div>
   `,
+
   styles: [`
-    .content-wrapper { max-width: 100%; margin: 0 auto; }
-    .page-header { margin-bottom: 32px; }
-    .page-header h1 { margin: 0 0 8px 0; color: #0c4a6e; font-size: 28px; font-weight: 600; }
-    .page-header p { margin: 0; color: #475569; font-size: 16px; }
-    .preview-section, .classification-section, .options-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #bae6fd; margin-bottom: 24px; padding: 24px; }
-    .file-info-bar { display: flex; gap: 24px; padding: 12px 16px; background: #f0f9ff; border-radius: 6px; margin-bottom: 16px; font-size: 14px; color: #475569; }
-    .table-container { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 6px; }
-    .preview-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    .preview-table th { background: #f8fafc; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 500; color: #0f172a; }
-    .header-cell { display: flex; flex-direction: column; gap: 2px; }
-    .header-name { font-weight: 600; }
-    .header-index { font-size: 11px; color: #64748b; font-weight: normal; }
-    .preview-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
-    .preview-table tr:hover { background: #f8fafc; }
-    .index-col { background: #f8fafc; font-weight: 500; color: #64748b; text-align: center; width: 50px; }
-    .preview-note { margin: 12px 0 0 0; font-size: 13px; color: #64748b; text-align: center; }
-    .classification-section h2, .options-section h2 { margin: 0 0 20px 0; color: #0f172a; font-size: 20px; font-weight: 500; }
-    .section-desc { margin: 0 0 20px 0; color: #64748b; font-size: 14px; }
-    .classification-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
-    .classification-card, .option-card, .fill-method-card, .options-card { background: #f0f9ff; border-radius: 6px; padding: 20px; border: 1px solid #bae6fd; }
-    .classification-card.required { border: 2px solid #60a5fa; background: #eff6ff; }
-    .classification-card.full-width { grid-column: 1 / -1; }
-    .classification-card h3, .option-content h3 { margin: 0 0 8px 0; color: #0f172a; font-size: 16px; font-weight: 500; }
-    .classification-card p, .option-content p { margin: 0 0 12px 0; color: #64748b; font-size: 13px; }
-    .column-input, .select-input {
+    /* Layout & Structure */
+    .content-wrapper {
+      max-width: 100%;
+      margin: 0 auto;
+    }
+    .page-header {
+      margin-bottom: 32px;
+    }
+    .page-header h1 {
+      margin: 0 0 8px 0;
+      color: #0c4a6e;
+      font-size: 28px;
+      font-weight: 600;
+    }
+    .page-header p {
+      margin: 0;
+      color: #475569;
+      font-size: 16px;
+    }
+    .preview-section,
+    .classification-section,
+    .options-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      border: 1px solid #bae6fd;
+      margin-bottom: 24px;
+      padding: 24px;
+    }
+    .file-info-bar {
+      display: flex;
+      gap: 24px;
+      padding: 12px 16px;
+      background: #f0f9ff;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      color: #475569;
+    }
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .preview-table th {
+      background: #f8fafc;
+      padding: 12px;
+      text-align: left;
+      border-bottom: 2px solid #e2e8f0;
+      font-weight: 500;
+      color: #0f172a;
+    }
+    .header-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .header-name {
+      font-weight: 600;
+    }
+    .header-index {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: normal;
+    }
+    .preview-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .preview-table tr:hover {
+      background: #f8fafc;
+    }
+    .index-col {
+      background: #f8fafc;
+      font-weight: 500;
+      color: #64748b;
+      text-align: center;
+      width: 50px;
+    }
+    .preview-note {
+      margin: 12px 0 0 0;
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+    }
+    .classification-section h2,
+    .options-section h2 {
+      margin: 0 0 20px 0;
+      color: #0f172a;
+      font-size: 20px;
+      font-weight: 500;
+    }
+    .section-desc {
+      margin: 0 0 20px 0;
+      color: #64748b;
+      font-size: 14px;
+    }
+    .classification-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    .classification-card,
+    .option-card,
+    .fill-method-card,
+    .outlier-method-card,
+    .options-card {
+      background: #f0f9ff;
+      border-radius: 6px;
+      padding: 20px;
+      border: 1px solid #bae6fd;
+    }
+    .classification-card.required {
+      border: 2px solid #60a5fa;
+      background: #eff6ff;
+    }
+    .classification-card.full-width {
+      grid-column: 1 / -1;
+    }
+    .classification-card h3,
+    .option-content h3 {
+      margin: 0 0 8px 0;
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .classification-card p,
+    .option-content p {
+      margin: 0 0 12px 0;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .column-input,
+    .select-input {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #93c5fd;
@@ -396,6 +519,7 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
     }
     /* Make select-input labels bold and add spacing */
     .fill-method-card label,
+    .outlier-method-card label,
     .options-card label[for="transformMethod"] {
       font-weight: 600;
       margin-bottom: 8px;
@@ -598,6 +722,7 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
     @keyframes spin { to { transform: rotate(360deg); } }
   `]
 })
+
 export class PreprocessingComponent implements OnInit {
   @ViewChild('fileInput') fileInput!: ElementRef;
   sessionId: string = '';
@@ -933,7 +1058,7 @@ export class PreprocessingComponent implements OnInit {
       });
     }
 
-    // Add covariates
+    // Add covariates ONLY (NO omics)
     classification.covariateColumns.forEach(col => {
       result.push({
         value: col,
@@ -941,13 +1066,7 @@ export class PreprocessingComponent implements OnInit {
       });
     });
 
-    // Add omics
-    classification.omicsColumns.forEach(col => {
-      result.push({
-        value: col,
-        display: this.getColumnDisplay(col, preview.headers) + ' (Omics)'
-      });
-    });
+    // Omics columns are intentionally excluded from categorical/ordinal selection
 
     return result;
   }
@@ -1140,7 +1259,21 @@ export class PreprocessingComponent implements OnInit {
     }
   }
 
+
   getMissingDataAnalysisCount(): number {
     return Object.keys(this.missingDataAnalysis).length;
+  }
+
+  // Gestione mutua esclusione tra rimozione valori nulli e riempimento NA
+  onRemoveNullValuesChange() {
+    if (this.options.removeNullValues) {
+      this.options.fillMissingValues = 'none';
+    }
+  }
+
+  onFillMissingValuesChange() {
+    if (this.options.fillMissingValues !== 'none') {
+      this.options.removeNullValues = false;
+    }
   }
 }
