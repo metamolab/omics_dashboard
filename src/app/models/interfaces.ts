@@ -24,14 +24,21 @@ export interface ColumnClassification {
 }
 
 export interface PreprocessingOptions {
-  removeNullValues: boolean;
-  removeOutliers: boolean;
-  transformation: string;
-  fillMissingValues: string;
   columnClassification: ColumnClassification;
-  customOptions?: any;
+  removeNullValues: boolean;
+  fillMissingValues: 'none' | 'mean' | 'median' | 'mode' | 'forward' | 'backward';
+  transformation: 'none' | 'scale' | 'center' | 'standardize' | 'log' | 'log2' | 'yeo-johnson';
+  removeOutliers: boolean;
+  outlierMethod: 'iqr' | 'zscore' | 'isolation';
+  missingDataRemoval?: MissingDataRemovalOptions;
   sessionId?: string;
   userId?: string;
+}
+
+export interface MissingDataRemovalOptions {
+  enabled: boolean;
+  threshold: number;
+  columnsToRemove: string[];
 }
 
 export interface AnalysisOptions {

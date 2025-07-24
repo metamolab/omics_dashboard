@@ -17,7 +17,6 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
       <div class="page-header">
         <h1>Impostazioni Pre-processing</h1>
         <p>Configura come vuoi preparare i tuoi dati per l'analisi</p>
-      </div>
 
       <!-- File Preview Section -->
       @if (filePreview()) {
@@ -187,6 +186,87 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
 
       <!-- Data Cleaning, Transformation, and Outlier Options -->
       <div class="options-container">
+        <!-- Eliminazione Colonne con Dati Mancanti -->
+        <div class="options-section">
+          <h2>Eliminazione Colonne con Dati Mancanti</h2>
+          <div class="missing-data-section">
+            <div class="option-card">
+              <label class="option-label">
+                <input type="checkbox" [(ngModel)]="enableMissingDataRemoval" (change)="analyzeMissingData()">
+                <span class="checkbox-custom"></span>
+                <div class="option-content">
+                  <h3>Elimina colonne con troppi dati mancanti</h3>
+                  <p>Rimuovi automaticamente colonne che superano la soglia di dati mancanti</p>
+                </div>
+              </label>
+            </div>
+            
+            @if (enableMissingDataRemoval) {
+              <div class="threshold-section">
+                <label for="missingThreshold" class="threshold-label">
+                  Soglia percentuale di dati mancanti: {{ missingDataThreshold }}%
+                </label>
+                <input 
+                  type="range" 
+                  id="missingThreshold"
+                  min="10" 
+                  max="95" 
+                  step="5"
+                  [(ngModel)]="missingDataThreshold"
+                  (input)="updateColumnsToRemove()"
+                  class="threshold-slider">
+                <div class="slider-labels">
+                  <span>10%</span>
+                  <span>50%</span>
+                  <span>95%</span>
+                </div>
+              </div>
+
+              @if (columnsToRemove.length > 0) {
+                <div class="columns-to-remove">
+                  <h4>Colonne che verranno eliminate ({{ columnsToRemove.length }}):</h4>
+                  <div class="columns-list">
+                    @for (col of columnsToRemove.slice(0, 10); track col.name) {
+                      <div class="column-to-remove">
+                        <span class="column-name">{{ col.name }}</span>
+                        <span class="missing-percentage">{{ col.missingPercentage.toFixed(1) }}% mancante</span>
+                      </div>
+                    }
+                    @if (columnsToRemove.length > 10) {
+                      <div class="more-columns">
+                        ...e altre {{ columnsToRemove.length - 10 }} colonne
+                      </div>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <div class="no-columns-message">
+                  <p>Nessuna colonna verrà eliminata con la soglia del {{ missingDataThreshold }}%</p>
+                </div>
+              }
+
+              @if (getMissingDataAnalysisCount() > 0) {
+                <div class="missing-data-summary">
+                  <h4>Riepilogo dati mancanti:</h4>
+                  <div class="summary-stats">
+                    <div class="stat">
+                      <span class="stat-label">Colonne totali analizzate:</span>
+                      <span class="stat-value">{{ getMissingDataAnalysisCount() }}</span>
+                    </div>
+                    <div class="stat">
+                      <span class="stat-label">Colonne senza dati mancanti:</span>
+                      <span class="stat-value">{{ getColumnsWithoutMissing() }}</span>
+                    </div>
+                    <div class="stat">
+                      <span class="stat-label">Colonne con >{{ missingDataThreshold }}% mancanti:</span>
+                      <span class="stat-value">{{ columnsToRemove.length }}</span>
+                    </div>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        </div>
         <!-- Pulizia Dati -->
         <div class="options-section">
           <h2>Pulizia Dati</h2>
@@ -242,12 +322,21 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
                 <span class="checkbox-custom"></span>
                 <div class="option-content">
                   <h3>Rimuovi outlier</h3>
-                  <p>Elimina valori anomali</p>
+                  <p>Elimina valori anomali usando metodi statistici</p>
                 </div>
               </label>
             </div>
+            <div class="outlier-method-card">
+              <label for="outlierMethod">Metodo di rilevamento</label>
+              <select id="outlierMethod" [(ngModel)]="options.outlierMethod" class="select-input">
+                <option value="iqr">IQR (Interquartile Range)</option>
+                <option value="zscore">Z-Score</option>
+                <option value="isolation">Isolation Forest</option>
+              </select>
+            </div>
           </div>
         </div>
+      </div>
 
         <!-- Action Buttons -->
         <div class="button-group">
@@ -333,6 +422,152 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
       color: #94a3b8;
       cursor: not-allowed;
     }
+    .missing-data-section {
+  .threshold-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    
+    .threshold-label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: #2c3e50;
+    }
+    
+    .threshold-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #ddd;
+      outline: none;
+      margin: 0.5rem 0;
+      
+      &::-webkit-slider-thumb {
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #3498db;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+      
+      &::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #3498db;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+    }
+    
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #666;
+    }
+  }
+  
+  .columns-to-remove {
+    margin-top: 1rem;
+    
+    h4 {
+      color: #e74c3c;
+      margin-bottom: 0.5rem;
+    }
+    
+    .columns-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 0.5rem;
+      background: #fff;
+      
+      .column-to-remove {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.3rem 0;
+        border-bottom: 1px solid #eee;
+        
+        &:last-child {
+          border-bottom: none;
+        }
+        
+        .column-name {
+          font-family: 'Courier New', monospace;
+          color: #2c3e50;
+          font-size: 0.9rem;
+        }
+        
+        .missing-percentage {
+          font-size: 0.85rem;
+          color: #e74c3c;
+          font-weight: 500;
+        }
+      }
+      
+      .more-columns {
+        text-align: center;
+        color: #666;
+        font-style: italic;
+        padding: 0.5rem;
+      }
+    }
+  }
+  
+  .no-columns-message {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    color: #155724;
+    
+    p {
+      margin: 0;
+    }
+  }
+  
+  .missing-data-summary {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #e3f2fd;
+    border-radius: 4px;
+    
+    h4 {
+      margin-bottom: 0.5rem;
+      color: #1976d2;
+    }
+    
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.5rem;
+      
+      .stat {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.25rem 0;
+        
+        .stat-label {
+          color: #555;
+        }
+        
+        .stat-value {
+          font-weight: 600;
+          color: #1976d2;
+        }
+      }
+    }
+  }
+}
     .column-input.error { border-color: #ef4444; }
     .error-text { display: block; color: #dc2626; font-size: 12px; margin-top: 4px; }
     .selected-columns { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; min-height: 32px; }
@@ -364,19 +599,32 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
   `]
 })
 export class PreprocessingComponent implements OnInit {
+  @ViewChild('fileInput') fileInput!: ElementRef;
   sessionId: string = '';
   userId: string = '';
+
+  missingDataThreshold = 50;
+  enableMissingDataRemoval = false;
+  columnsToRemove: { name: string, missingPercentage: number }[] = [];
+  missingDataAnalysis: { [key: string]: number } = {};
+
   options: PreprocessingOptions = {
-    removeNullValues: false,
-    transformation: 'none',
-    removeOutliers: false,
-    fillMissingValues: 'none',
     columnClassification: {
       idColumn: null,
       outcomeColumn: '',
       covariateColumns: [],
       omicsColumns: [],
       categoricalColumns: []
+    },
+    removeNullValues: false,
+    fillMissingValues: 'none',
+    transformation: 'none',
+    removeOutliers: false,
+    outlierMethod: 'iqr',
+    missingDataRemoval: {
+      enabled: false,
+      threshold: 50,
+      columnsToRemove: []
     }
   };
 
@@ -397,6 +645,7 @@ export class PreprocessingComponent implements OnInit {
     covariates: '',
     omics: ''
   };
+
 
   constructor(
     private router: Router,
@@ -463,6 +712,8 @@ export class PreprocessingComponent implements OnInit {
       }
     }
   }
+
+
 
   validateColumnInput() {
     const preview = this.filePreview();
@@ -741,6 +992,105 @@ export class PreprocessingComponent implements OnInit {
     this.navigationService.navigateToStep('upload');
   }
 
+  analyzeMissingData() {
+    if (!this.enableMissingDataRemoval) {
+      this.columnsToRemove = [];
+      this.missingDataAnalysis = {};
+      if (!this.options.missingDataRemoval) {
+        this.options.missingDataRemoval = { enabled: false, threshold: this.missingDataThreshold, columnsToRemove: [] };
+      } else {
+        this.options.missingDataRemoval.enabled = false;
+      }
+      return;
+    }
+
+    const preview = this.filePreview();
+    if (!preview) return;
+
+    this.missingDataAnalysis = {};
+    
+    // Analyze only classified columns (covariates + omics)
+    const allClassifiedColumns = this.getAllAnalyzableColumns();
+    
+    // For each column, calculate percentage of missing data
+    allClassifiedColumns.forEach(colName => {
+      let missingCount = 0;
+      const totalRows = preview.rows.length;
+      
+      // Find column index
+      const colIndex = preview.headers.indexOf(colName);
+      if (colIndex === -1) return;
+      
+      // Count missing values in preview rows
+      preview.rows.forEach(row => {
+        const cellValue = row[colIndex];
+        if (this.isMissingValue(cellValue)) {
+          missingCount++;
+        }
+      });
+      
+      // Calculate percentage (estimate based on preview)
+      const missingPercentage = totalRows > 0 ? (missingCount / totalRows) * 100 : 0;
+      this.missingDataAnalysis[colName] = missingPercentage;
+    });
+    
+    this.updateColumnsToRemove();
+  }
+
+  updateColumnsToRemove() {
+    this.columnsToRemove = [];
+    
+    Object.entries(this.missingDataAnalysis).forEach(([colName, missingPercentage]) => {
+      if (missingPercentage > this.missingDataThreshold) {
+        this.columnsToRemove.push({
+          name: colName,
+          missingPercentage: missingPercentage
+        });
+      }
+    });
+    
+    // Sort by missing percentage (descending)
+    this.columnsToRemove.sort((a, b) => b.missingPercentage - a.missingPercentage);
+    
+    // Update options
+    this.options.missingDataRemoval = {
+      enabled: this.enableMissingDataRemoval,
+      threshold: this.missingDataThreshold,
+      columnsToRemove: this.columnsToRemove.map(col => col.name)
+    };
+  }
+
+  getAllAnalyzableColumns(): string[] {
+    const covariateColumns = this.getSelectedColumns('covariates')
+      .filter(col => typeof col === 'string') as string[];
+    const omicsColumns = this.getSelectedColumns('omics')
+      .filter(col => typeof col === 'string') as string[];
+    
+    return [...covariateColumns, ...omicsColumns];
+  }
+
+   isMissingValue(value: any): boolean {
+    if (value === null || value === undefined) return true;
+    if (typeof value === 'string') {
+      const trimmed = value.trim().toLowerCase();
+      return trimmed === '' || 
+             trimmed === 'na' || 
+             trimmed === 'nan' || 
+             trimmed === 'null' || 
+             trimmed === 'n/a' ||
+             trimmed === '#n/a' ||
+             trimmed === 'missing';
+    }
+    if (typeof value === 'number') {
+      return isNaN(value);
+    }
+    return false;
+  }
+
+  getColumnsWithoutMissing(): number {
+    return Object.values(this.missingDataAnalysis).filter(percentage => percentage === 0).length;
+  }
+
   async processAndContinue() {
     if (!this.isValid() || this.processing()) return;
 
@@ -788,5 +1138,9 @@ export class PreprocessingComponent implements OnInit {
     } finally {
       this.processing.set(false);
     }
+  }
+
+  getMissingDataAnalysisCount(): number {
+    return Object.keys(this.missingDataAnalysis).length;
   }
 }
