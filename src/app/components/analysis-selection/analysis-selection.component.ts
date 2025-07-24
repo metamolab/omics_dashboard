@@ -135,6 +135,9 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
               @if (thresholdError) {
                 <span class="error-text">{{ thresholdError }}</span>
               }
+              @if (thresholdInfo) {
+                <span class="info-text">{{ thresholdInfo }}</span>
+              }
             </div>
           }
 
@@ -307,6 +310,12 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
     </div>
   `,
   styles: [`
+    .info-text {
+      display: block;
+      color: #0284c7;
+      font-size: 12px;
+      margin-top: 4px;
+    }
     .content-wrapper {
       max-width: 100%;
       margin: 0 auto;
@@ -697,6 +706,13 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
       font-size: 13px;
     }
 
+    .info-text {
+      display: block;
+      color: #0284c7;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
     .additional-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -808,6 +824,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
   originalFileName = '';
   thresholdInput = '';
   thresholdError = '';
+  thresholdInfo = '';
   outcomeValues: number[] = [];
   tertiles: number[] = [];
 
@@ -1056,16 +1073,18 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
       const col = classification[type];
       if (col === null && header === 'row_id') return true;
       if (typeof col === 'number') {
-        return headers[col] === header;
+        return col >= 0 && col < headers.length && headers[col] === header;
       }
       return col === header;
     } else {
-      // omicsColumns or covariateColumns
+      // omicsColumns or covariateColumns: support both index and name
       return (classification[type] as any[]).some((col: any) => {
-        if (typeof col === 'number') {
-          return headers[col] === header;
+        if (typeof col === 'string') {
+          return col === header;
+        } else if (typeof col === 'number') {
+          return col >= 0 && col < headers.length && headers[col] === header;
         }
-        return col === header;
+        return false;
       });
     }
   }
@@ -1077,18 +1096,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     return this.isColumnType(header, 'outcomeColumn');
   }
   isOmicsColumn(header: string): boolean {
-    // Fix: robustly check for omics columns by comparing both header names and indices
-    const classification = this.preprocessingInfo?.columnClassification;
-    const headers = this.filePreview()?.headers || [];
-    if (!classification || !headers.length) return false;
-    // Omics columns can be string (name) or number (index)
-    return (classification.omicsColumns || []).some((col: any) => {
-      if (typeof col === 'number') {
-        // Defensive: check index in bounds
-        return headers[col] === header;
-      }
-      return col === header;
-    });
+    return this.isColumnType(header, 'omicsColumns');
   }
   isCovariateColumn(header: string): boolean {
     return this.isColumnType(header, 'covariateColumns');
@@ -1113,6 +1121,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
 
   validateThresholds() {
     this.thresholdError = '';
+    this.thresholdInfo = '';
     if (!this.thresholdInput.trim()) {
       this.options.thresholdValues = [];
       this.createOutcomeHistogram(); // Update histogram
@@ -1131,10 +1140,10 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
       numbers.push(num);
     }
 
-    // Check if values are in ascending order
+    // Check if values are in ascending order (allow equality)
     for (let i = 1; i < numbers.length; i++) {
-      if (numbers[i] <= numbers[i-1]) {
-        this.thresholdError = 'I valori devono essere in ordine crescente';
+      if (numbers[i] < numbers[i-1]) {
+        this.thresholdError = 'I valori devono essere in ordine crescente o uguali';
         return;
       }
     }
@@ -1149,6 +1158,12 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
           return;
         }
       }
+    }
+
+    // If there are coincident values, show info message
+    const hasCoincident = numbers.length === 1 || numbers.some((v, i, arr) => i > 0 && v === arr[i-1]);
+    if (hasCoincident) {
+      this.thresholdInfo = 'Nota: con valori threshold coincidenti verranno creati solo due gruppi.';
     }
 
     this.options.thresholdValues = numbers;
