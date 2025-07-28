@@ -7,7 +7,7 @@ import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgClass } from '@angular/common';
 import { Router } from '@angular/router';
 import { DataFlowService } from '../../services/data-flow.service';
 import { ApiService } from '../../services/api.service';
@@ -20,6 +20,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
   standalone: true,
   imports: [
     CommonModule,
+    NgClass,
     MatTableModule,
     MatSortModule,
     MatFormFieldModule,

@@ -16,11 +16,11 @@ export interface FilePreview {
 }
 
 export interface ColumnClassification {
-  idColumn: string | number | null;  // null means use row indices
-  outcomeColumn: string | number | '';  // can be empty initially
-  covariateColumns: (string | number)[];
-  omicsColumns: (string | number)[];
-  categoricalColumns: (string | number)[];
+  idColumn: string | null;  // null means use row indices, string for column name
+  outcomeColumn: string | '';  // can be empty initially, always stored as column name
+  covariateColumns: string[];  // always stored as column names
+  omicsColumns: string[];      // always stored as column names
+  categoricalColumns: string[]; // always stored as column names
 }
 
 export interface PreprocessingOptions {
@@ -41,13 +41,52 @@ export interface MissingDataRemovalOptions {
   columnsToRemove: string[];
 }
 
+export interface MultivariateMethodConfig {
+  enabled: boolean;
+  lambdaSelection: 'automatic' | 'manual';
+  lambdaRange?: {
+    min: number;
+    max: number;
+    step: number;
+  };
+  metric: 'rmse' | 'rsquared';
+  lambdaRule: 'min' | '1se';
+  includeCovariates: boolean;
+}
+
+export interface RandomForestConfig {
+  enabled: boolean;
+  ntree: 100 | 500 | 1000;
+  mtrySelection: 'automatic' | 'manual';
+  mtryValue?: number;
+  includeCovariates: boolean;
+}
+
+export interface BorutaConfig {
+  enabled: boolean;
+  ntree: 100 | 500 | 1000;
+  mtrySelection: 'automatic' | 'manual';
+  mtryValue?: number;
+  maxRuns: number;
+  roughFixTentativeFeatures: boolean;
+  includeCovariates: boolean;
+}
+
 export interface AnalysisOptions {
   sessionId?: string;
   userId?: string;
   groupingMethod?: 'none' | 'tertiles' | 'threshold';
   thresholdValues?: number[];
   statisticalTests: string[];
-  regressionAnalysis: boolean;
+  linearRegression: boolean;
+  linearRegressionWithoutInfluentials: boolean;
+  multivariateAnalysis: {
+    ridge: MultivariateMethodConfig;
+    lasso: MultivariateMethodConfig;
+    elasticNet: MultivariateMethodConfig;
+    randomForest: RandomForestConfig;
+    boruta: BorutaConfig;
+  };
   clusteringMethod?: string;
   customAnalysis?: any;
 }

@@ -71,8 +71,8 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
             </table>
           </div>
           
-          @if (filePreview()!.totalRows > 5) {
-            <p class="preview-note">Mostrando solo le prime 5 righe di {{ filePreview()!.totalRows }}</p>
+          @if (filePreview()!.totalRows > 10) {
+            <p class="preview-note">Mostrando solo le prime 10 righe di {{ filePreview()!.totalRows }}</p>
           }
         </div>
       }
@@ -280,21 +280,691 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
           </div>
         </div>
 
-        <!-- Additional Analyses -->
+        <!-- Linear Regressions Section -->
         <div class="analysis-section">
-          <h2>Analisi Aggiuntive</h2>
-          <div class="additional-grid">
-            <div class="analysis-card">
-              <label class="analysis-label">
-                <input type="checkbox" [(ngModel)]="options.regressionAnalysis">
+          <h2>Regressioni Lineari</h2>
+          <p class="section-desc">Analizza le relazioni predittive tra variabili omics e outcome, con eventuali covariate</p>
+          
+          <div class="test-grid">
+            <div class="test-card">
+              <label class="test-label">
+                <input type="checkbox" 
+                       [(ngModel)]="options.linearRegression"
+                       (change)="onLinearRegressionChange()">
                 <span class="checkbox-custom"></span>
-                <div class="analysis-content">
-                  <h3>Analisi di Regressione</h3>
-                  <p>Modella le relazioni predittive</p>
+                <div class="test-content">
+                  <h4>Regressione Lineare Standard</h4>
+                  <p>Analisi di regressione lineare completa</p>
                 </div>
               </label>
             </div>
 
+            <div class="test-card" [class.disabled]="!options.linearRegression">
+              <label class="test-label">
+                <input type="checkbox" 
+                       [(ngModel)]="options.linearRegressionWithoutInfluentials"
+                       [disabled]="!options.linearRegression"
+                       (change)="onLinearRegressionWithoutInfluentialsChange()">
+                <span class="checkbox-custom"></span>
+                <div class="test-content">
+                  <h4>Regressione senza Punti Influenti</h4>
+                  <p>Rifai le regressioni escludendo automaticamente i punti influenti individuati tramite Cook's Distance</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multivariate Analysis/Feature Selection Section -->
+        <div class="analysis-section">
+          <h2>Analisi Multivariata/Selezione delle Caratteristiche</h2>
+          <p class="section-desc">Metodi di regolarizzazione per la selezione automatica delle variabili più rilevanti</p>
+          
+          <!-- Ridge Regression -->
+          <div class="method-section">
+            <div class="test-card">
+              <label class="test-label">
+                <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.ridge.enabled">
+                <span class="checkbox-custom"></span>
+                <div class="test-content">
+                  <h4>Ridge Regression</h4>
+                  <p>Regolarizzazione L2 per ridurre l'overfitting mantenendo tutte le variabili</p>
+                </div>
+              </label>
+            </div>
+
+            @if (options.multivariateAnalysis.ridge.enabled) {
+              <div class="parameter-config">
+                <h3>Configurazione Ridge Regression</h3>
+                
+                <div class="radio-options-inline">
+                  <label class="radio-option-inline">
+                    <input type="radio" 
+                           name="ridgeLambdaSelection" 
+                           value="automatic"
+                           [(ngModel)]="options.multivariateAnalysis.ridge.lambdaSelection">
+                    <span class="radio-custom-small"></span>
+                    <span>Determinazione Automatica</span>
+                  </label>
+
+                  <label class="radio-option-inline">
+                    <input type="radio" 
+                           name="ridgeLambdaSelection" 
+                           value="manual"
+                           [(ngModel)]="options.multivariateAnalysis.ridge.lambdaSelection">
+                    <span class="radio-custom-small"></span>
+                    <span>Range Personalizzato</span>
+                  </label>
+                </div>
+
+                @if (options.multivariateAnalysis.ridge.lambdaSelection === 'manual') {
+                  <div class="lambda-range-inputs">
+                    <div class="input-group">
+                      <label>Valore Minimo</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.ridge.lambdaRange!.min"
+                             step="0.001" 
+                             min="0"
+                             class="number-input">
+                    </div>
+                    <div class="input-group">
+                      <label>Valore Massimo</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.ridge.lambdaRange!.max"
+                             step="0.001" 
+                             min="0"
+                             class="number-input">
+                    </div>
+                    <div class="input-group">
+                      <label>Step</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.ridge.lambdaRange!.step"
+                             step="0.001" 
+                             min="0.001"
+                             class="number-input">
+                    </div>
+                  </div>
+                }
+
+                <!-- Ridge Metric Selection -->
+                <div class="metric-selection">
+                  <h4>Metrica di Valutazione</h4>
+                  <div class="metric-options">
+                    <label class="radio-option-metric">
+                      <input type="radio" 
+                             name="ridgeMetric" 
+                             value="rmse"
+                             [(ngModel)]="options.multivariateAnalysis.ridge.metric">
+                      <span class="radio-custom-small"></span>
+                      <div class="metric-content">
+                        <span class="metric-title">RMSE</span>
+                        <p>Utilizza l'errore quadratico medio per la selezione</p>
+                      </div>
+                    </label>
+
+                    <label class="radio-option-metric">
+                      <input type="radio" 
+                             name="ridgeMetric" 
+                             value="rsquared"
+                             [(ngModel)]="options.multivariateAnalysis.ridge.metric">
+                      <span class="radio-custom-small"></span>
+                      <div class="metric-content">
+                        <span class="metric-title">R²</span>
+                        <p>Utilizza la varianza spiegata per la selezione</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Ridge Lambda Rule Selection -->
+                <div class="lambda-rule-selection">
+                  <h4>Regola di Selezione Lambda</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="ridgeLambdaRule" 
+                             value="min"
+                             [(ngModel)]="options.multivariateAnalysis.ridge.lambdaRule">
+                      <span class="radio-custom-small"></span>
+                      <span>Lambda Minimo</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="ridgeLambdaRule" 
+                             value="1se"
+                             [(ngModel)]="options.multivariateAnalysis.ridge.lambdaRule">
+                      <span class="radio-custom-small"></span>
+                      <span>Lambda 1SE</span>
+                    </label>
+                  </div>
+                  <p class="rule-description">
+                    @if (options.multivariateAnalysis.ridge.lambdaRule === 'min') {
+                      <span>Seleziona il lambda che {{ options.multivariateAnalysis.ridge.metric === 'rmse' ? 'minimizza RMSE' : 'massimizza R²' }}</span>
+                    } @else {
+                      <span>Seleziona il lambda più conservativo (modello più semplice) entro 1 errore standard dal {{ options.multivariateAnalysis.ridge.metric === 'rmse' ? 'minimo RMSE' : 'massimo R²' }}</span>
+                    }
+                  </p>
+                </div>
+
+                <!-- Include Covariates Option -->
+                <div class="parameter-group">
+                  <h4>Inclusione Covariate</h4>
+                  <label class="checkbox-option">
+                    <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.ridge.includeCovariates">
+                    <span class="checkbox-custom-inline"></span>
+                    <span>Includi le covariate nell'analisi insieme alle variabili omics</span>
+                  </label>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- LASSO Regression -->
+          <div class="method-section">
+            <div class="test-card">
+              <label class="test-label">
+                <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.lasso.enabled">
+                <span class="checkbox-custom"></span>
+                <div class="test-content">
+                  <h4>LASSO Regression</h4>
+                  <p>Regolarizzazione L1 per selezione automatica delle variabili (alcune vengono eliminate)</p>
+                </div>
+              </label>
+            </div>
+
+            @if (options.multivariateAnalysis.lasso.enabled) {
+              <div class="parameter-config">
+                <h3>Configurazione LASSO Regression</h3>
+                
+                <div class="radio-options-inline">
+                  <label class="radio-option-inline">
+                    <input type="radio" 
+                           name="lassoLambdaSelection" 
+                           value="automatic"
+                           [(ngModel)]="options.multivariateAnalysis.lasso.lambdaSelection">
+                    <span class="radio-custom-small"></span>
+                    <span>Determinazione Automatica</span>
+                  </label>
+
+                  <label class="radio-option-inline">
+                    <input type="radio" 
+                           name="lassoLambdaSelection" 
+                           value="manual"
+                           [(ngModel)]="options.multivariateAnalysis.lasso.lambdaSelection">
+                    <span class="radio-custom-small"></span>
+                    <span>Range Personalizzato</span>
+                  </label>
+                </div>
+
+                @if (options.multivariateAnalysis.lasso.lambdaSelection === 'manual') {
+                  <div class="lambda-range-inputs">
+                    <div class="input-group">
+                      <label>Valore Minimo</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.lasso.lambdaRange!.min"
+                             step="0.001" 
+                             min="0"
+                             class="number-input">
+                    </div>
+                    <div class="input-group">
+                      <label>Valore Massimo</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.lasso.lambdaRange!.max"
+                             step="0.001" 
+                             min="0"
+                             class="number-input">
+                    </div>
+                    <div class="input-group">
+                      <label>Step</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.lasso.lambdaRange!.step"
+                             step="0.001" 
+                             min="0.001"
+                             class="number-input">
+                    </div>
+                  </div>
+                }
+
+                <!-- LASSO Metric Selection -->
+                <div class="metric-selection">
+                  <h4>Metrica di Valutazione</h4>
+                  <div class="metric-options">
+                    <label class="radio-option-metric">
+                      <input type="radio" 
+                             name="lassoMetric" 
+                             value="rmse"
+                             [(ngModel)]="options.multivariateAnalysis.lasso.metric">
+                      <span class="radio-custom-small"></span>
+                      <div class="metric-content">
+                        <span class="metric-title">RMSE</span>
+                        <p>Utilizza l'errore quadratico medio per la selezione</p>
+                      </div>
+                    </label>
+
+                    <label class="radio-option-metric">
+                      <input type="radio" 
+                             name="lassoMetric" 
+                             value="rsquared"
+                             [(ngModel)]="options.multivariateAnalysis.lasso.metric">
+                      <span class="radio-custom-small"></span>
+                      <div class="metric-content">
+                        <span class="metric-title">R²</span>
+                        <p>Utilizza la varianza spiegata per la selezione</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- LASSO Lambda Rule Selection -->
+                <div class="lambda-rule-selection">
+                  <h4>Regola di Selezione Lambda</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="lassoLambdaRule" 
+                             value="min"
+                             [(ngModel)]="options.multivariateAnalysis.lasso.lambdaRule">
+                      <span class="radio-custom-small"></span>
+                      <span>Lambda Minimo</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="lassoLambdaRule" 
+                             value="1se"
+                             [(ngModel)]="options.multivariateAnalysis.lasso.lambdaRule">
+                      <span class="radio-custom-small"></span>
+                      <span>Lambda 1SE</span>
+                    </label>
+                  </div>
+                  <p class="rule-description">
+                    @if (options.multivariateAnalysis.lasso.lambdaRule === 'min') {
+                      <span>Seleziona il lambda che {{ options.multivariateAnalysis.lasso.metric === 'rmse' ? 'minimizza RMSE' : 'massimizza R²' }}</span>
+                    } @else {
+                      <span>Seleziona il lambda più conservativo (modello più semplice) entro 1 errore standard dal {{ options.multivariateAnalysis.lasso.metric === 'rmse' ? 'minimo RMSE' : 'massimo R²' }}</span>
+                    }
+                  </p>
+                </div>
+
+                <!-- Include Covariates Option -->
+                <div class="parameter-group">
+                  <h4>Inclusione Covariate</h4>
+                  <label class="checkbox-option">
+                    <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.lasso.includeCovariates">
+                    <span class="checkbox-custom-inline"></span>
+                    <span>Includi le covariate nell'analisi insieme alle variabili omics</span>
+                  </label>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Elastic Net -->
+          <div class="method-section">
+            <div class="test-card">
+              <label class="test-label">
+                <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.elasticNet.enabled">
+                <span class="checkbox-custom"></span>
+                <div class="test-content">
+                  <h4>Elastic Net</h4>
+                  <p>Combinazione di Ridge e LASSO (regolarizzazione L1 + L2)</p>
+                </div>
+              </label>
+            </div>
+
+            @if (options.multivariateAnalysis.elasticNet.enabled) {
+              <div class="parameter-config">
+                <h3>Configurazione Elastic Net</h3>
+                
+                <div class="radio-options-inline">
+                  <label class="radio-option-inline">
+                    <input type="radio" 
+                           name="elasticNetLambdaSelection" 
+                           value="automatic"
+                           [(ngModel)]="options.multivariateAnalysis.elasticNet.lambdaSelection">
+                    <span class="radio-custom-small"></span>
+                    <span>Determinazione Automatica</span>
+                  </label>
+
+                  <label class="radio-option-inline">
+                    <input type="radio" 
+                           name="elasticNetLambdaSelection" 
+                           value="manual"
+                           [(ngModel)]="options.multivariateAnalysis.elasticNet.lambdaSelection">
+                    <span class="radio-custom-small"></span>
+                    <span>Range Personalizzato</span>
+                  </label>
+                </div>
+
+                @if (options.multivariateAnalysis.elasticNet.lambdaSelection === 'manual') {
+                  <div class="lambda-range-inputs">
+                    <div class="input-group">
+                      <label>Valore Minimo</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.elasticNet.lambdaRange!.min"
+                             step="0.001" 
+                             min="0"
+                             class="number-input">
+                    </div>
+                    <div class="input-group">
+                      <label>Valore Massimo</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.elasticNet.lambdaRange!.max"
+                             step="0.001" 
+                             min="0"
+                             class="number-input">
+                    </div>
+                    <div class="input-group">
+                      <label>Step</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.elasticNet.lambdaRange!.step"
+                             step="0.001" 
+                             min="0.001"
+                             class="number-input">
+                    </div>
+                  </div>
+                }
+
+                <!-- Elastic Net Metric Selection -->
+                <div class="metric-selection">
+                  <h4>Metrica di Valutazione</h4>
+                  <div class="metric-options">
+                    <label class="radio-option-metric">
+                      <input type="radio" 
+                             name="elasticNetMetric" 
+                             value="rmse"
+                             [(ngModel)]="options.multivariateAnalysis.elasticNet.metric">
+                      <span class="radio-custom-small"></span>
+                      <div class="metric-content">
+                        <span class="metric-title">RMSE</span>
+                        <p>Utilizza l'errore quadratico medio per la selezione</p>
+                      </div>
+                    </label>
+
+                    <label class="radio-option-metric">
+                      <input type="radio" 
+                             name="elasticNetMetric" 
+                             value="rsquared"
+                             [(ngModel)]="options.multivariateAnalysis.elasticNet.metric">
+                      <span class="radio-custom-small"></span>
+                      <div class="metric-content">
+                        <span class="metric-title">R²</span>
+                        <p>Utilizza la varianza spiegata per la selezione</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Elastic Net Lambda Rule Selection -->
+                <div class="lambda-rule-selection">
+                  <h4>Regola di Selezione Lambda</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="elasticNetLambdaRule" 
+                             value="min"
+                             [(ngModel)]="options.multivariateAnalysis.elasticNet.lambdaRule">
+                      <span class="radio-custom-small"></span>
+                      <span>Lambda Minimo</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="elasticNetLambdaRule" 
+                             value="1se"
+                             [(ngModel)]="options.multivariateAnalysis.elasticNet.lambdaRule">
+                      <span class="radio-custom-small"></span>
+                      <span>Lambda 1SE</span>
+                    </label>
+                  </div>
+                  <p class="rule-description">
+                    @if (options.multivariateAnalysis.elasticNet.lambdaRule === 'min') {
+                      <span>Seleziona il lambda che {{ options.multivariateAnalysis.elasticNet.metric === 'rmse' ? 'minimizza RMSE' : 'massimizza R²' }}</span>
+                    } @else {
+                      <span>Seleziona il lambda più conservativo (modello più semplice) entro 1 errore standard dal {{ options.multivariateAnalysis.elasticNet.metric === 'rmse' ? 'minimo RMSE' : 'massimo R²' }}</span>
+                    }
+                  </p>
+                </div>
+
+                <!-- Include Covariates Option -->
+                <div class="parameter-group">
+                  <h4>Inclusione Covariate</h4>
+                  <label class="checkbox-option">
+                    <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.elasticNet.includeCovariates">
+                    <span class="checkbox-custom-inline"></span>
+                    <span>Includi le covariate nell'analisi insieme alle variabili omics</span>
+                  </label>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Random Forest -->
+          <div class="method-section">
+            <div class="test-card">
+              <label class="test-label">
+                <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.randomForest.enabled">
+                <span class="checkbox-custom"></span>
+                <div class="test-content">
+                  <h4>Random Forest</h4>
+                  <p>Metodo ensemble basato su alberi di decisione per predizione e selezione delle caratteristiche</p>
+                </div>
+              </label>
+            </div>
+
+            @if (options.multivariateAnalysis.randomForest.enabled) {
+              <div class="parameter-config">
+                <h3>Configurazione Random Forest</h3>
+                
+                <!-- Number of Trees -->
+                <div class="parameter-group">
+                  <h4>Numero di Alberi (ntree)</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="randomForestNtree" 
+                             [value]="100"
+                             [(ngModel)]="options.multivariateAnalysis.randomForest.ntree">
+                      <span class="radio-custom-small"></span>
+                      <span>100</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="randomForestNtree" 
+                             [value]="500"
+                             [(ngModel)]="options.multivariateAnalysis.randomForest.ntree">
+                      <span class="radio-custom-small"></span>
+                      <span>500</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="randomForestNtree" 
+                             [value]="1000"
+                             [(ngModel)]="options.multivariateAnalysis.randomForest.ntree">
+                      <span class="radio-custom-small"></span>
+                      <span>1000</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Mtry Configuration -->
+                <div class="parameter-group">
+                  <h4>Configurazione mtry (numero di variabili considerate ad ogni split)</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="randomForestMtrySelection" 
+                             value="automatic"
+                             [(ngModel)]="options.multivariateAnalysis.randomForest.mtrySelection">
+                      <span class="radio-custom-small"></span>
+                      <span>Automatico (√p)</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="randomForestMtrySelection" 
+                             value="manual"
+                             [(ngModel)]="options.multivariateAnalysis.randomForest.mtrySelection">
+                      <span class="radio-custom-small"></span>
+                      <span>Personalizzato</span>
+                    </label>
+                  </div>
+
+                  @if (options.multivariateAnalysis.randomForest.mtrySelection === 'manual') {
+                    <div class="input-group">
+                      <label>Valore mtry</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.randomForest.mtryValue"
+                             min="1" 
+                             step="1"
+                             class="number-input"
+                             placeholder="es. 10">
+                      <small class="input-help">Numero di variabili da considerare ad ogni split dell'albero</small>
+                    </div>
+                  }
+                </div>
+
+                <!-- Include Covariates Option -->
+                <div class="parameter-group">
+                  <h4>Inclusione Covariate</h4>
+                  <label class="checkbox-option">
+                    <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.randomForest.includeCovariates">
+                    <span class="checkbox-custom-inline"></span>
+                    <span>Includi le covariate nell'analisi insieme alle variabili omics</span>
+                  </label>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Boruta Feature Selection -->
+          <div class="method-section">
+            <div class="test-card">
+              <label class="test-label">
+                <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.boruta.enabled">
+                <span class="checkbox-custom"></span>
+                <div class="test-content">
+                  <h4>Boruta Feature Selection</h4>
+                  <p>Algoritmo di selezione delle caratteristiche basato su Random Forest che identifica tutte le variabili rilevanti</p>
+                </div>
+              </label>
+            </div>
+
+            @if (options.multivariateAnalysis.boruta.enabled) {
+              <div class="parameter-config">
+                <h3>Configurazione Boruta</h3>
+                
+                <!-- Number of Trees -->
+                <div class="parameter-group">
+                  <h4>Numero di Alberi (ntree)</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="borutaNtree" 
+                             [value]="100"
+                             [(ngModel)]="options.multivariateAnalysis.boruta.ntree">
+                      <span class="radio-custom-small"></span>
+                      <span>100</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="borutaNtree" 
+                             [value]="500"
+                             [(ngModel)]="options.multivariateAnalysis.boruta.ntree">
+                      <span class="radio-custom-small"></span>
+                      <span>500</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="borutaNtree" 
+                             [value]="1000"
+                             [(ngModel)]="options.multivariateAnalysis.boruta.ntree">
+                      <span class="radio-custom-small"></span>
+                      <span>1000</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Mtry Configuration -->
+                <div class="parameter-group">
+                  <h4>Configurazione mtry (numero di variabili considerate ad ogni split)</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="borutaMtrySelection" 
+                             value="automatic"
+                             [(ngModel)]="options.multivariateAnalysis.boruta.mtrySelection">
+                      <span class="radio-custom-small"></span>
+                      <span>Automatico (√p)</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="borutaMtrySelection" 
+                             value="manual"
+                             [(ngModel)]="options.multivariateAnalysis.boruta.mtrySelection">
+                      <span class="radio-custom-small"></span>
+                      <span>Personalizzato</span>
+                    </label>
+                  </div>
+
+                  @if (options.multivariateAnalysis.boruta.mtrySelection === 'manual') {
+                    <div class="input-group">
+                      <label>Valore mtry</label>
+                      <input type="number" 
+                             [(ngModel)]="options.multivariateAnalysis.boruta.mtryValue"
+                             min="1" 
+                             step="1"
+                             class="number-input"
+                             placeholder="es. 10">
+                      <small class="input-help">Numero di variabili da considerare ad ogni split dell'albero</small>
+                    </div>
+                  }
+                </div>
+
+                <!-- Max Runs Configuration -->
+                <div class="parameter-group">
+                  <h4>Numero Massimo di Iterazioni (maxRuns)</h4>
+                  <div class="input-group">
+                    <label>Valore maxRuns</label>
+                    <input type="number" 
+                           [(ngModel)]="options.multivariateAnalysis.boruta.maxRuns"
+                           min="10" 
+                           max="1000"
+                           step="10"
+                           class="number-input"
+                           placeholder="100">
+                    <small class="input-help">Numero massimo di iterazioni per l'algoritmo Boruta (consigliato: 100-500)</small>
+                  </div>
+                </div>
+
+                <!-- Rough Fix for Tentative Features Option -->
+                <div class="parameter-group">
+                  <h4>Gestione Caratteristiche Tentative</h4>
+                  <label class="checkbox-option">
+                    <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.boruta.roughFixTentativeFeatures">
+                    <span class="checkbox-custom-inline"></span>
+                    <span>Applica rough fix per le caratteristiche tentative</span>
+                  </label>
+                  <small class="input-help">Se selezionato, applica una correzione statistica per decidere il destino delle caratteristiche tentative</small>
+                </div>
+
+                <!-- Include Covariates Option -->
+                <div class="parameter-group">
+                  <h4>Inclusione Covariate</h4>
+                  <label class="checkbox-option">
+                    <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.boruta.includeCovariates">
+                    <span class="checkbox-custom-inline"></span>
+                    <span>Includi le covariate nell'analisi insieme alle variabili omics</span>
+                  </label>
+                </div>
+              </div>
+            }
           </div>
         </div>
 
@@ -641,6 +1311,27 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
       border: 1px solid #bae6fd;
     }
 
+    .test-card.disabled {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      opacity: 0.6;
+    }
+
+    .test-card.disabled .test-content h4,
+    .test-card.disabled .test-content p {
+      color: #94a3b8;
+    }
+
+    .test-card.disabled .checkbox-custom {
+      border-color: #e2e8f0;
+      background: #f1f5f9;
+    }
+
+    .test-card.disabled:hover {
+      border-color: #e2e8f0;
+      box-shadow: none;
+    }
+
     .test-card:hover, .analysis-card:hover {
       border-color: #60a5fa;
       box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -713,19 +1404,6 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
       margin-top: 4px;
     }
 
-    .additional-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-    }
-
-    .analysis-card label {
-      display: block;
-      margin-bottom: 8px;
-      color: #0f172a;
-      font-weight: 500;
-    }
-
     .select-input {
       width: 100%;
       padding: 10px 12px;
@@ -793,6 +1471,271 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
       font-size: 12px;
       margin-top: 4px;
     }
+
+    /* Multivariate Analysis Styles */
+    .parameter-config {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+
+    .parameter-config h3 {
+      margin: 0 0 16px 0;
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .parameter-config h4 {
+      margin: 16px 0 12px 0;
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .radio-options-inline {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+
+    .radio-option-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .radio-option-inline input[type="radio"] {
+      display: none;
+    }
+
+    .radio-custom-small {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #93c5fd;
+      border-radius: 50%;
+      background: white;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .radio-option-inline input[type="radio"]:checked + .radio-custom-small {
+      border-color: #0284c7;
+    }
+
+    .radio-custom-small::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #0284c7;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .radio-option-inline input[type="radio"]:checked + .radio-custom-small::after {
+      opacity: 1;
+    }
+
+    .lambda-range-inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .input-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .number-input {
+      padding: 8px 12px;
+      border: 1px solid #93c5fd;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .number-input:focus {
+      outline: none;
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.1);
+    }
+
+    .metric-selection {
+      margin-top: 16px;
+    }
+
+    .lambda-rule-selection {
+      margin-top: 16px;
+    }
+
+    .rule-description {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #64748b;
+      font-style: italic;
+    }
+
+    .metric-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .radio-option-metric {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .radio-option-metric:hover {
+      border-color: #60a5fa;
+    }
+
+    .radio-option-metric input[type="radio"] {
+      display: none;
+    }
+
+    .radio-option-metric input[type="radio"]:checked ~ .metric-content .metric-title {
+      color: #0284c7;
+    }
+
+    .radio-option-metric input[type="radio"]:checked + .radio-custom-small {
+      border-color: #0284c7;
+    }
+
+    .radio-option-metric input[type="radio"]:checked + .radio-custom-small::after {
+      opacity: 1;
+    }
+
+    .metric-content {
+      flex: 1;
+    }
+
+    .metric-title {
+      font-weight: 500;
+      font-size: 14px;
+      color: #0f172a;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .metric-content p {
+      margin: 0;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    /* Method Section Styles */
+    .method-section {
+      margin-bottom: 24px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .method-section .test-card {
+      margin: 0;
+      border-radius: 0;
+      border: none;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .method-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .method-section .parameter-config {
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      background: #f8fafc;
+    }
+
+    /* Parameter Group Styles */
+    .parameter-group {
+      margin-bottom: 20px;
+    }
+
+    .parameter-group:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Checkbox Option Styles */
+    .checkbox-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      padding: 8px 0;
+    }
+
+    .checkbox-option input[type="checkbox"] {
+      display: none;
+    }
+
+    .checkbox-custom-inline {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #93c5fd;
+      border-radius: 4px;
+      background: white;
+      position: relative;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .checkbox-option input[type="checkbox"]:checked + .checkbox-custom-inline {
+      background: #0284c7;
+      border-color: #0284c7;
+    }
+
+    .checkbox-custom-inline::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .checkbox-option input[type="checkbox"]:checked + .checkbox-custom-inline::after {
+      opacity: 1;
+    }
+
+    /* Input Help Text */
+    .input-help {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 4px;
+      font-style: italic;
+    }
   `]
 })
 export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -817,7 +1760,50 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     groupingMethod: 'none',
     thresholdValues: [],
     statisticalTests: [],
-    regressionAnalysis: false
+    linearRegression: false,
+    linearRegressionWithoutInfluentials: false,
+    multivariateAnalysis: {
+      ridge: {
+        enabled: false,
+        lambdaSelection: 'automatic',
+        lambdaRange: { min: 0.001, max: 1, step: 0.001 },
+        metric: 'rmse',
+        lambdaRule: 'min',
+        includeCovariates: true
+      },
+      lasso: {
+        enabled: false,
+        lambdaSelection: 'automatic',
+        lambdaRange: { min: 0.001, max: 1, step: 0.001 },
+        metric: 'rmse',
+        lambdaRule: 'min',
+        includeCovariates: true
+      },
+      elasticNet: {
+        enabled: false,
+        lambdaSelection: 'automatic',
+        lambdaRange: { min: 0.001, max: 1, step: 0.001 },
+        metric: 'rmse',
+        lambdaRule: 'min',
+        includeCovariates: true
+      },
+      randomForest: {
+        enabled: false,
+        ntree: 500,
+        mtrySelection: 'automatic',
+        mtryValue: undefined,
+        includeCovariates: true
+      },
+      boruta: {
+        enabled: false,
+        ntree: 500,
+        mtrySelection: 'automatic',
+        mtryValue: undefined,
+        maxRuns: 100,
+        roughFixTentativeFeatures: false,
+        includeCovariates: true
+      }
+    }
   };
 
   filePreview = signal<FilePreview | null>(null);
@@ -855,7 +1841,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     // Load preview of preprocessed file
     if (fileData.processedFile) {
       try {
-        const preview = await this.fileParserService.parseFile(fileData.processedFile, 5);
+        const preview = await this.fileParserService.parseFile(fileData.processedFile, 10);
         this.filePreview.set(preview);
         
         // Extract outcome values for histogram
@@ -1064,29 +2050,27 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     }
   }
 
-  // Generic column type checker
+  // Generic column type checker - now works with column names saved in preprocessing
   private isColumnType(header: string, type: 'idColumn' | 'outcomeColumn' | 'omicsColumns' | 'covariateColumns'): boolean {
     const classification = this.preprocessingInfo?.columnClassification;
     if (!classification) return false;
-    const headers = this.filePreview()?.headers || [];
+    
     if (type === 'idColumn' || type === 'outcomeColumn') {
       const col = classification[type];
       if (col === null && header === 'row_id') return true;
-      if (typeof col === 'number') {
-        return col >= 0 && col < headers.length && headers[col] === header;
-      }
       return col === header;
     } else {
-      // omicsColumns or covariateColumns: support both index and name
-      return (classification[type] as any[]).some((col: any) => {
-        if (typeof col === 'string') {
-          return col === header;
-        } else if (typeof col === 'number') {
-          return col >= 0 && col < headers.length && headers[col] === header;
-        }
-        return false;
-      });
+      // omicsColumns or covariateColumns: now they should all be column names
+      const columns = classification[type] as string[];
+      if (!Array.isArray(columns)) return false;
+      
+      return columns.includes(header);
     }
+  }
+  
+  // Remove the helper method as we no longer need it
+  private isDefinitelyCovariateColumn(header: string): boolean {
+    return this.isColumnType(header, 'covariateColumns');
   }
 
   isIdColumn(header: string): boolean {
@@ -1184,10 +2168,32 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     this.options.statisticalTests = newTests;
   }
 
+  onLinearRegressionChange() {
+    // If standard linear regression is unchecked, also uncheck the influential points option
+    if (!this.options.linearRegression) {
+      this.options.linearRegressionWithoutInfluentials = false;
+    }
+  }
+
+  onLinearRegressionWithoutInfluentialsChange() {
+    // This method is called when the checkbox changes
+    // The ngModel binding will handle the actual value change
+    // This is here for potential future functionality
+  }
+
+  hasMultivariateMethodSelected(): boolean {
+    return this.options.multivariateAnalysis.ridge.enabled || 
+           this.options.multivariateAnalysis.lasso.enabled || 
+           this.options.multivariateAnalysis.elasticNet.enabled ||
+           this.options.multivariateAnalysis.randomForest.enabled ||
+           this.options.multivariateAnalysis.boruta.enabled;
+  }
+
   isValid(): boolean {
     // Check if at least one test is selected
     const hasTests = this.options.statisticalTests.length > 0 ||
-                    this.options.regressionAnalysis;
+                    this.options.linearRegression ||
+                    this.hasMultivariateMethodSelected();
 
     // Check threshold validity if using threshold grouping
     if (this.options.groupingMethod === 'threshold') {

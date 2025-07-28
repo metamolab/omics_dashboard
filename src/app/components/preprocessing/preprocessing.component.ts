@@ -137,7 +137,7 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
           <!-- Omics Data Columns -->
           <div class="classification-card required">
             <h3>🧬 Dati Omici</h3>
-            <p>Dati genomici/proteomici (almeno 1 obbligatoria)</p>
+            <p>Dati omici da includere (almeno 1 obbligatoria)</p>
             <input 
               type="text" 
               [(ngModel)]="columnInputs.omics"
@@ -333,9 +333,9 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
             <label for="transformMethod">Metodo di trasformazione</label>
             <select id="transformMethod" [(ngModel)]="options.transformation" class="select-input">
               <option value="none">Nessuna trasformazione</option>
-              <option value="scale">Scala (0-1)</option>
+              <option value="scale">Scala</option>
               <option value="center">Centra</option>
-              <option value="standardize">Standardizza (z-score)</option>
+              <option value="standardize">Standardizza</option>
               <option value="log">Log</option>
               <option value="log2">Log2</option>
               <option value="yeo-johnson">Yeo-Johnson</option>
@@ -886,15 +886,32 @@ export class PreprocessingComponent implements OnInit {
       if (overlap) this.columnErrors.omics = overlap;
     }
 
-    // Update options
+    // Update options - always store column names instead of indices
+    const headers = this.filePreview()?.headers || [];
+    
+    // Convert all columns to names for reliable matching in preprocessed files
+    const convertToName = (col: string | number): string => {
+      if (typeof col === 'number') {
+        return headers[col] || '';
+      }
+      return col;
+    };
+
+    // Filter out null values and convert to names
+    const allSelectedCols = [
+      ...covariateCols, 
+      ...omicsCols, 
+      ...(outcomeCol !== null ? [outcomeCol] : [])
+    ];
+
     this.options.columnClassification = {
-      idColumn: idCol,
-      outcomeColumn: outcomeCol !== null ? outcomeCol : '',
-      covariateColumns: covariateCols,
-      omicsColumns: omicsCols,
+      idColumn: idCol !== null ? convertToName(idCol) : null,
+      outcomeColumn: outcomeCol !== null ? convertToName(outcomeCol) : '',
+      covariateColumns: covariateCols.map(convertToName).filter(name => name !== ''),
+      omicsColumns: omicsCols.map(convertToName).filter(name => name !== ''),
       categoricalColumns: this.options.columnClassification.categoricalColumns.filter(
-        col => [...covariateCols, ...omicsCols, outcomeCol].some(c => c === col)
-      )
+        col => allSelectedCols.some(c => convertToName(c) === (typeof col === 'number' ? headers[col] : col))
+      ).map(col => typeof col === 'number' ? headers[col] : col).filter(name => name !== '')
     };
   }
 
@@ -1079,15 +1096,22 @@ export class PreprocessingComponent implements OnInit {
   }
 
   isCategorical(column: string | number): boolean {
-    return this.options.columnClassification.categoricalColumns.includes(column);
+    // Convert column to name if it's a number
+    const headers = this.filePreview()?.headers || [];
+    const columnName = typeof column === 'number' ? headers[column] : column;
+    return this.options.columnClassification.categoricalColumns.includes(columnName);
   }
 
   toggleCategorical(column: string | number) {
+    // Convert column to name if it's a number
+    const headers = this.filePreview()?.headers || [];
+    const columnName = typeof column === 'number' ? headers[column] : column;
+    
     const arr = this.options.columnClassification.categoricalColumns;
-    if (arr.includes(column)) {
-      this.options.columnClassification.categoricalColumns = arr.filter(c => c !== column);
+    if (arr.includes(columnName)) {
+      this.options.columnClassification.categoricalColumns = arr.filter(c => c !== columnName);
     } else {
-      this.options.columnClassification.categoricalColumns = [...arr, column];
+      this.options.columnClassification.categoricalColumns = [...arr, columnName];
     }
   }
 
