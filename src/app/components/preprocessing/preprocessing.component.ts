@@ -164,7 +164,36 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
           <!-- Categorical Variables -->
           <div class="classification-card full-width">
             <h3>📋 Variabili Categoriche/Ordinali</h3>
-            <p>Seleziona quali delle colonne già classificate sono categoriche/ordinali</p>
+            <p>{{ getCategoricalSectionDescription() }}</p>
+            
+            <!-- Show analysis type indicator -->
+            @if (getAnalysisType() === 'classification') {
+              <div class="analysis-type-indicator classification">
+                
+                <div class="indicator-content">
+                  <h4>Analisi di Classificazione Rilevata</h4>
+                  <p>La variabile outcome è marcata come categorica. Verranno mostrati test statistici e metodi appropriati per l'analisi di classificazione.</p>
+                </div>
+              </div>
+            } @else {
+              <div class="analysis-type-indicator regression">
+                <div class="indicator-content">
+                  <h4>Analisi di Regressione</h4>
+                  <p>La variabile outcome è continua. Verranno mostrati test statistici e metodi appropriati per l'analisi di regressione.</p>
+                </div>
+              </div>
+            }
+
+            <!-- Helpful hint for classification -->
+            @if (getAnalysisType() === 'regression' && options.columnClassification.outcomeColumn) {
+              <div class="classification-hint">
+                <div class="hint-content">
+                  <h4>💡 Vuoi fare un'analisi di classificazione?</h4>
+                  <p>Se la tua variabile outcome è categorica (es: malattia/sano, gruppo A/B/C), seleziona la casella "{{ getSelectedColumn('outcome') }} (Outcome)" qui sotto per attivare l'analisi di classificazione.</p>
+                </div>
+              </div>
+            }
+
             <div class="categorical-selection">
               @for (col of getAllClassifiedColumns(); track col.display) {
                 <label class="categorical-label">
@@ -719,6 +748,31 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
     .primary-btn:hover:not(:disabled) { background: #0369a1; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2); }
     .primary-btn:disabled { background: #93c5fd; cursor: not-allowed; }
     .spinner-small { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    
+    /* Classification Hint Styles */
+    .classification-hint {
+      background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+      border: 2px solid #fb923c;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .hint-content h4 {
+      margin: 0 0 8px 0;
+      color: #9a3412;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .hint-content p {
+      margin: 0;
+      color: #c2410c;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    
     @keyframes spin { to { transform: rotate(360deg); } }
   `]
 })
@@ -806,6 +860,7 @@ export class PreprocessingComponent implements OnInit {
     }
     this.userId = userId;
     this.options.sessionId = this.sessionId;
+    this.options.userId = this.userId;
 
     // Load file preview
     try {
@@ -1130,6 +1185,42 @@ export class PreprocessingComponent implements OnInit {
     return hasOutcome && hasOmics && noErrors;
   }
 
+  // Add computed property for outcome type
+  get outcomeType(): 'continuous' | 'categorical' | 'auto-detect' {
+    const outcomeCol = this.options.columnClassification.outcomeColumn;
+    if (!outcomeCol) return 'continuous';
+
+    // Check if outcome is marked as categorical
+    const outcomeName = typeof outcomeCol === 'number' ? 
+      (this.filePreview()?.headers || [])[outcomeCol] : outcomeCol;
+    
+    console.log('Checking outcome type:');
+    console.log('- Outcome column:', outcomeCol);
+    console.log('- Outcome name:', outcomeName);
+    console.log('- Categorical columns:', this.options.columnClassification.categoricalColumns);
+    console.log('- Is outcome in categorical list:', this.options.columnClassification.categoricalColumns.includes(outcomeName));
+    
+    if (this.options.columnClassification.categoricalColumns.includes(outcomeName)) {
+      return 'categorical';
+    }
+    
+    return 'continuous';
+  }
+
+  // Add method to get analysis type
+  getAnalysisType(): 'regression' | 'classification' {
+    return this.outcomeType === 'categorical' ? 'classification' : 'regression';
+  }
+
+  // Update the categorical selection section description
+  getCategoricalSectionDescription(): string {
+    const analysisType = this.getAnalysisType();
+    if (analysisType === 'classification') {
+      return 'Seleziona quali delle colonne già classificate sono categoriche/ordinali. La variabile outcome è marcata come categorica, quindi verrà eseguita un\'analisi di classificazione.';
+    }
+    return 'Seleziona quali delle colonne già classificate sono categoriche/ordinali';
+  }
+
   goBack() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     this.navigationService.navigateToStep('upload');
@@ -1243,10 +1334,20 @@ export class PreprocessingComponent implements OnInit {
     this.processing.set(true);
 
     try {
-      // Send file for preprocessing
+      // Send file for preprocessing with outcome type
+      const preprocessingOptions = { 
+        ...this.options, 
+        columnClassification: {
+          ...this.options.columnClassification,
+          outcomeType: this.outcomeType
+        },
+        sessionId: this.sessionId, 
+        userId: this.userId 
+      };
+      
       const processedBlob = await this.apiService.preprocessFile(
         fileData.file,
-        { ...this.options, sessionId: this.sessionId, userId: this.userId }
+        preprocessingOptions
       ).toPromise();
 
       if (!processedBlob) {
@@ -1268,8 +1369,8 @@ export class PreprocessingComponent implements OnInit {
         userId: this.userId
       });
 
-      // Save preprocessing options (propaga sessionId e userId)
-      this.dataFlowService.setPreprocessingOptions({ ...this.options, sessionId: this.sessionId, userId: this.userId });
+      // Save preprocessing options with outcome type included
+      this.dataFlowService.setPreprocessingOptions(preprocessingOptions);
       this.navigationService.updateNavigationStatus();
       
       // Navigate to analysis

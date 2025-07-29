@@ -21,6 +21,8 @@ export interface ColumnClassification {
   covariateColumns: string[];  // always stored as column names
   omicsColumns: string[];      // always stored as column names
   categoricalColumns: string[]; // always stored as column names
+  // Add outcome type detection
+  outcomeType?: 'continuous' | 'categorical' | 'auto-detect';
 }
 
 export interface PreprocessingOptions {
@@ -49,7 +51,7 @@ export interface MultivariateMethodConfig {
     max: number;
     step: number;
   };
-  metric: 'rmse' | 'rsquared';
+  metric: 'rmse' | 'rsquared' | 'accuracy' | 'auc' | 'f1' | 'kappa';
   lambdaRule: 'min' | '1se';
   includeCovariates: boolean;
 }
@@ -72,6 +74,14 @@ export interface BorutaConfig {
   includeCovariates: boolean;
 }
 
+export interface RFEConfig {
+  enabled: boolean;
+  metric: 'rmse' | 'rsquared' | 'accuracy' | 'auc' | 'f1' | 'kappa';
+  subsetSizeType: 'automatic' | 'custom';
+  customSubsetSizes?: string;
+  includeCovariates: boolean;
+}
+
 export interface AnalysisOptions {
   sessionId?: string;
   userId?: string;
@@ -86,9 +96,12 @@ export interface AnalysisOptions {
     elasticNet: MultivariateMethodConfig;
     randomForest: RandomForestConfig;
     boruta: BorutaConfig;
+    rfe: RFEConfig;
   };
   clusteringMethod?: string;
   customAnalysis?: any;
+  analysisType?: 'regression' | 'classification';
+
 }
 
 export interface AnalysisRequest {

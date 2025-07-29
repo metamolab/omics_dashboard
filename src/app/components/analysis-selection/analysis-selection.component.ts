@@ -19,6 +19,22 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
         <p>Scegli quali test e metodologie applicare ai tuoi dati preprocessati</p>
       </div>
 
+      <!-- Analysis Type Indicator -->
+      @if (preprocessingInfo) {
+        <div class="analysis-type-banner" [class.classification]="isClassification" [class.regression]="isRegression">
+          <div class="analysis-type-content">
+            <span class="analysis-type-label">
+              @if (isClassification) {
+                🎯 Analisi di Classificazione
+              } @else {
+                📈 Analisi di Regressione
+              }
+            </span>
+            <span class="analysis-type-description">{{ getAnalysisTypeDescription() }}</span>
+          </div>
+        </div>
+      }
+
       <!-- Preprocessed File Preview -->
       @if (filePreview()) {
         <div class="preview-section">
@@ -77,10 +93,11 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
         </div>
       }
 
-      <!-- Grouping Method Section -->
-      <div class="grouping-section">
-        <h2>Metodo di Raggruppamento</h2>
-        <p class="section-desc">Scegli come raggruppare i dati per i test bivariati (non applicabile a correlazioni)</p>
+      <!-- Grouping Method Section - Only for Regression Analysis -->
+      @if (isRegression) {
+        <div class="grouping-section">
+          <h2>Metodo di Raggruppamento</h2>
+          <p class="section-desc">Scegli come raggruppare i dati per i test bivariati (non applicabile a correlazioni)</p>
         
         <div class="grouping-container">
           <div class="grouping-options">
@@ -150,12 +167,14 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
           }
         </div>
       </div>
+      }
 
       <div class="analysis-container">
-        <!-- Statistical Tests Section -->
-        <div class="analysis-section">
-          <h2>Test Statistici Bivariati</h2>
-          <p class="section-desc">Confronta i gruppi definiti sopra</p>
+        <!-- Statistical Tests Section - Only for Regression Analysis -->
+        @if (isRegression) {
+          <div class="analysis-section">
+            <h2>Test Statistici Bivariati</h2>
+            <p class="section-desc">Confronta i gruppi definiti sopra</p>
           
           <div class="test-category">
             <h3>Test Parametrici</h3>
@@ -279,46 +298,61 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
             </div>
           </div>
         </div>
+        }
 
-        <!-- Linear Regressions Section -->
-        <div class="analysis-section">
-          <h2>Regressioni Lineari</h2>
-          <p class="section-desc">Analizza le relazioni predittive tra variabili omics e outcome, con eventuali covariate</p>
-          
-          <div class="test-grid">
-            <div class="test-card">
-              <label class="test-label">
-                <input type="checkbox" 
-                       [(ngModel)]="options.linearRegression"
-                       (change)="onLinearRegressionChange()">
-                <span class="checkbox-custom"></span>
-                <div class="test-content">
-                  <h4>Regressione Lineare Standard</h4>
-                  <p>Analisi di regressione lineare completa</p>
-                </div>
-              </label>
-            </div>
+        <!-- Linear Regressions Section - Only for Regression Analysis -->
+        @if (isRegression) {
+          <div class="analysis-section">
+            <h2>Regressioni Lineari</h2>
+            <p class="section-desc">Analizza le relazioni predittive tra variabili omics e outcome, con eventuali covariate</p>
+            
+            <div class="test-grid">
+              <div class="test-card">
+                <label class="test-label">
+                  <input type="checkbox" 
+                         [(ngModel)]="options.linearRegression"
+                         (change)="onLinearRegressionChange()">
+                  <span class="checkbox-custom"></span>
+                  <div class="test-content">
+                    <h4>Regressione Lineare Standard</h4>
+                    <p>Analisi di regressione lineare completa</p>
+                  </div>
+                </label>
+              </div>
 
-            <div class="test-card" [class.disabled]="!options.linearRegression">
-              <label class="test-label">
-                <input type="checkbox" 
-                       [(ngModel)]="options.linearRegressionWithoutInfluentials"
-                       [disabled]="!options.linearRegression"
-                       (change)="onLinearRegressionWithoutInfluentialsChange()">
-                <span class="checkbox-custom"></span>
-                <div class="test-content">
-                  <h4>Regressione senza Punti Influenti</h4>
-                  <p>Rifai le regressioni escludendo automaticamente i punti influenti individuati tramite Cook's Distance</p>
-                </div>
-              </label>
+              <div class="test-card" [class.disabled]="!options.linearRegression">
+                <label class="test-label">
+                  <input type="checkbox" 
+                         [(ngModel)]="options.linearRegressionWithoutInfluentials"
+                         [disabled]="!options.linearRegression"
+                         (change)="onLinearRegressionWithoutInfluentialsChange()">
+                  <span class="checkbox-custom"></span>
+                  <div class="test-content">
+                    <h4>Regressione senza Punti Influenti</h4>
+                    <p>Rifai le regressioni escludendo automaticamente i punti influenti individuati tramite Cook's Distance</p>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
-        </div>
+        }
 
         <!-- Multivariate Analysis/Feature Selection Section -->
         <div class="analysis-section">
-          <h2>Analisi Multivariata/Selezione delle Caratteristiche</h2>
-          <p class="section-desc">Metodi di regolarizzazione per la selezione automatica delle variabili più rilevanti</p>
+          <h2>
+            @if (isClassification) {
+              Algoritmi di Classificazione/Selezione delle Caratteristiche
+            } @else {
+              Analisi Multivariata/Selezione delle Caratteristiche
+            }
+          </h2>
+          <p class="section-desc">
+            @if (isClassification) {
+              Metodi di regolarizzazione per la classificazione e selezione automatica delle variabili più rilevanti
+            } @else {
+              Metodi di regolarizzazione per la selezione automatica delle variabili più rilevanti
+            }
+          </p>
           
           <!-- Ridge Regression -->
           <div class="method-section">
@@ -390,29 +424,19 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                 <div class="metric-selection">
                   <h4>Metrica di Valutazione</h4>
                   <div class="metric-options">
-                    <label class="radio-option-metric">
-                      <input type="radio" 
-                             name="ridgeMetric" 
-                             value="rmse"
-                             [(ngModel)]="options.multivariateAnalysis.ridge.metric">
-                      <span class="radio-custom-small"></span>
-                      <div class="metric-content">
-                        <span class="metric-title">RMSE</span>
-                        <p>Utilizza l'errore quadratico medio per la selezione</p>
-                      </div>
-                    </label>
-
-                    <label class="radio-option-metric">
-                      <input type="radio" 
-                             name="ridgeMetric" 
-                             value="rsquared"
-                             [(ngModel)]="options.multivariateAnalysis.ridge.metric">
-                      <span class="radio-custom-small"></span>
-                      <div class="metric-content">
-                        <span class="metric-title">R²</span>
-                        <p>Utilizza la varianza spiegata per la selezione</p>
-                      </div>
-                    </label>
+                    @for (metric of getAvailableMetrics(); track metric.value) {
+                      <label class="radio-option-metric">
+                        <input type="radio" 
+                               name="ridgeMetric" 
+                               [value]="metric.value"
+                               [(ngModel)]="options.multivariateAnalysis.ridge.metric">
+                        <span class="radio-custom-small"></span>
+                        <div class="metric-content">
+                          <span class="metric-title">{{ metric.label }}</span>
+                          <p>{{ metric.description }}</p>
+                        </div>
+                      </label>
+                    }
                   </div>
                 </div>
 
@@ -530,29 +554,19 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                 <div class="metric-selection">
                   <h4>Metrica di Valutazione</h4>
                   <div class="metric-options">
-                    <label class="radio-option-metric">
-                      <input type="radio" 
-                             name="lassoMetric" 
-                             value="rmse"
-                             [(ngModel)]="options.multivariateAnalysis.lasso.metric">
-                      <span class="radio-custom-small"></span>
-                      <div class="metric-content">
-                        <span class="metric-title">RMSE</span>
-                        <p>Utilizza l'errore quadratico medio per la selezione</p>
-                      </div>
-                    </label>
-
-                    <label class="radio-option-metric">
-                      <input type="radio" 
-                             name="lassoMetric" 
-                             value="rsquared"
-                             [(ngModel)]="options.multivariateAnalysis.lasso.metric">
-                      <span class="radio-custom-small"></span>
-                      <div class="metric-content">
-                        <span class="metric-title">R²</span>
-                        <p>Utilizza la varianza spiegata per la selezione</p>
-                      </div>
-                    </label>
+                    @for (metric of getAvailableMetrics(); track metric.value) {
+                      <label class="radio-option-metric">
+                        <input type="radio" 
+                               name="lassoMetric" 
+                               [value]="metric.value"
+                               [(ngModel)]="options.multivariateAnalysis.lasso.metric">
+                        <span class="radio-custom-small"></span>
+                        <div class="metric-content">
+                          <span class="metric-title">{{ metric.label }}</span>
+                          <p>{{ metric.description }}</p>
+                        </div>
+                      </label>
+                    }
                   </div>
                 </div>
 
@@ -670,29 +684,19 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                 <div class="metric-selection">
                   <h4>Metrica di Valutazione</h4>
                   <div class="metric-options">
-                    <label class="radio-option-metric">
-                      <input type="radio" 
-                             name="elasticNetMetric" 
-                             value="rmse"
-                             [(ngModel)]="options.multivariateAnalysis.elasticNet.metric">
-                      <span class="radio-custom-small"></span>
-                      <div class="metric-content">
-                        <span class="metric-title">RMSE</span>
-                        <p>Utilizza l'errore quadratico medio per la selezione</p>
-                      </div>
-                    </label>
-
-                    <label class="radio-option-metric">
-                      <input type="radio" 
-                             name="elasticNetMetric" 
-                             value="rsquared"
-                             [(ngModel)]="options.multivariateAnalysis.elasticNet.metric">
-                      <span class="radio-custom-small"></span>
-                      <div class="metric-content">
-                        <span class="metric-title">R²</span>
-                        <p>Utilizza la varianza spiegata per la selezione</p>
-                      </div>
-                    </label>
+                    @for (metric of getAvailableMetrics(); track metric.value) {
+                      <label class="radio-option-metric">
+                        <input type="radio" 
+                               name="elasticNetMetric" 
+                               [value]="metric.value"
+                               [(ngModel)]="options.multivariateAnalysis.elasticNet.metric">
+                        <span class="radio-custom-small"></span>
+                        <div class="metric-content">
+                          <span class="metric-title">{{ metric.label }}</span>
+                          <p>{{ metric.description }}</p>
+                        </div>
+                      </label>
+                    }
                   </div>
                 </div>
 
@@ -968,6 +972,119 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
           </div>
         </div>
 
+          <!-- Recursive Feature Elimination (RFE) -->
+          <div class="method-section">
+            <div class="test-card">
+              <label class="test-label">
+                <input type="checkbox" [(ngModel)]="options.multivariateAnalysis.rfe.enabled">
+                <span class="checkbox-custom"></span>
+                <div class="test-content">
+                  <h4>Recursive Feature Elimination (RFE)</h4>
+                  <p>Elimina ricorsivamente le caratteristiche meno importanti utilizzando un algoritmo di machine learning per selezionare il sottoinsieme ottimale</p>
+                </div>
+              </label>
+            </div>
+
+            @if (options.multivariateAnalysis.rfe.enabled) {
+              <div class="parameter-config">
+                <h3>Configurazione Recursive Feature Elimination</h3>
+                
+                <!-- Metric Selection -->
+                <div class="metric-selection">
+                  <h4>Metrica di Valutazione</h4>
+                  <div class="metric-options">
+                    @for (metric of getAvailableMetrics(); track metric.value) {
+                      <label class="radio-option-metric">
+                        <input type="radio" 
+                               name="rfeMetric" 
+                               [value]="metric.value"
+                               [(ngModel)]="options.multivariateAnalysis.rfe.metric">
+                        <span class="radio-custom-small"></span>
+                        <div class="metric-content">
+                          <span class="metric-title">{{ metric.label }}</span>
+                          <p>{{ metric.description }}</p>
+                        </div>
+                      </label>
+                    }
+                  </div>
+                </div>
+
+                <!-- Subset Size Configuration -->
+                <div class="parameter-group">
+                  <h4>Configurazione Dimensione Sottoinsieme</h4>
+                  <div class="radio-options-inline">
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="rfeSubsetType" 
+                             value="automatic"
+                             [(ngModel)]="options.multivariateAnalysis.rfe.subsetSizeType">
+                      <span class="radio-custom-small"></span>
+                      <span>Automatico (sequenziale per 5)</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="rfeSubsetType" 
+                             value="custom"
+                             [(ngModel)]="options.multivariateAnalysis.rfe.subsetSizeType">
+                      <span class="radio-custom-small"></span>
+                      <span>Personalizzato</span>
+                    </label>
+                  </div>
+                  <small class="input-help">Modalità automatica: testa sottoinsiemi di dimensione 5, 10, 15, ... fino al numero massimo di colonne ({{ getRFEMaxColumns() }})</small>
+
+                  @if (options.multivariateAnalysis.rfe.subsetSizeType === 'custom') {
+                    <div class="input-group">
+                      <label>Dimensioni Sottoinsieme Personalizzate</label>
+                      <input 
+                        type="text" 
+                        [(ngModel)]="options.multivariateAnalysis.rfe.customSubsetSizes"
+                        placeholder="es: 5,10,15,20"
+                        class="number-input"
+                        (input)="validateRFESubsetSizes()">
+                      <small class="input-help">
+                        Inserisci le dimensioni separate da virgola in ordine crescente. 
+                        Massimo: {{ getRFEMaxColumns() }} colonne
+                      </small>
+                      @if (rfeSubsetSizeError) {
+                        <span class="error-text">{{ rfeSubsetSizeError }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <!-- Include Covariates Option -->
+                <div class="parameter-group">
+                  <h4>Inclusione Covariate</h4>
+                  <label class="checkbox-option">
+                    <input type="checkbox" 
+                           [(ngModel)]="options.multivariateAnalysis.rfe.includeCovariates"
+                           (change)="onRFEIncludeCovariatesChange()">
+                    <span class="checkbox-custom-inline"></span>
+                    <span>Includi le covariate nell'analisi insieme alle variabili omics</span>
+                  </label>
+                </div>
+              </div>
+            }
+          </div>
+
+        <!-- Classification Analysis Placeholder -->
+        @if (isClassification) {
+          <div class="analysis-section">
+            <h2>Analisi di Classificazione</h2>
+            <div class="placeholder-content">
+              <div class="info-banner">
+                <span class="info-icon">🎯</span>
+                <div class="info-text">
+                  <h4>Modalità Classificazione Attiva</h4>
+                  <p>I test statistici specifici per l'analisi di classificazione saranno disponibili in una versione futura. 
+                     Per ora, puoi procedere direttamente agli algoritmi di machine learning per la classificazione.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
         <div class="button-group">
           <button class="secondary-btn" (click)="goBack()">Indietro</button>
           <button class="primary-btn" 
@@ -1006,6 +1123,82 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
       margin: 0;
       color: #475569;
       font-size: 16px;
+    }
+
+    /* Analysis Type Banner */
+    .analysis-type-banner {
+      background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      border: 2px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .analysis-type-banner.classification {
+      background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%);
+      border-color: #f59e0b;
+      color: #92400e;
+    }
+
+    .analysis-type-banner.regression {
+      background: linear-gradient(135deg, #dbeafe 0%, #3b82f6 100%);
+      border-color: #2563eb;
+      color: #1e40af;
+    }
+
+    .analysis-type-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .analysis-type-label {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .analysis-type-description {
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0.9;
+    }
+
+    /* Classification Placeholder Styles */
+    .placeholder-content {
+      padding: 20px 0;
+    }
+
+    .info-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border: 2px solid #0ea5e9;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .info-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .info-text h4 {
+      margin: 0 0 8px 0;
+      color: #0c4a6e;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .info-text p {
+      margin: 0;
+      color: #0369a1;
+      font-size: 14px;
+      line-height: 1.5;
     }
 
     /* Preview Section */
@@ -1756,6 +1949,24 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     { id: 'spearman', name: 'Spearman Correlation', description: 'Per relazioni monotone, non parametrica', category: 'correlation' }
   ];
 
+  // Classification tests - placeholder for future expansion
+  classificationTests: any[] = [
+    // Future: Add classification-specific tests here
+  ];
+
+  // Get available statistical tests based on analysis type
+  getAvailableStatisticalTests() {
+    if (this.isClassification) {
+      return this.classificationTests; // Empty for now
+    }
+    return this.statisticalTests;
+  }
+
+  // Get tests by category for regression analysis
+  getTestsByCategory(category: string) {
+    return this.getAvailableStatisticalTests().filter(test => test.category === category);
+  }
+
  options: AnalysisOptions = {
     groupingMethod: 'none',
     thresholdValues: [],
@@ -1802,6 +2013,13 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         maxRuns: 100,
         roughFixTentativeFeatures: false,
         includeCovariates: true
+      },
+      rfe: {
+        enabled: false,
+        metric: 'rmse',
+        subsetSizeType: 'automatic',
+        customSubsetSizes: '',
+        includeCovariates: true
       }
     }
   };
@@ -1811,11 +2029,77 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
   thresholdInput = '';
   thresholdError = '';
   thresholdInfo = '';
+  rfeSubsetSizeError = '';
   outcomeValues: number[] = [];
   tertiles: number[] = [];
 
   // Store preprocessing info
   preprocessingInfo: any = null;
+
+  // Analysis type detection methods
+  get analysisType(): 'regression' | 'classification' {
+    const outcomeType = this.preprocessingInfo?.columnClassification?.outcomeType;
+    return outcomeType === 'categorical' ? 'classification' : 'regression';
+  }
+
+  get isClassification(): boolean {
+    return this.analysisType === 'classification';
+  }
+
+  get isRegression(): boolean {
+    return this.analysisType === 'regression';
+  }
+
+  // Get appropriate metrics based on analysis type
+  getAvailableMetrics(): Array<{value: string, label: string, description: string}> {
+    if (this.isClassification) {
+      return [
+        { value: 'accuracy', label: 'Accuracy', description: 'Percentuale di predizioni corrette' },
+        { value: 'auc', label: 'AUC-ROC', description: 'Area sotto la curva ROC' },
+        { value: 'f1', label: 'F1-Score', description: 'Media armonica di precisione e recall' },
+        { value: 'kappa', label: 'Cohen\'s Kappa', description: 'Accordo oltre il caso' }
+      ];
+    } else {
+      return [
+        { value: 'rmse', label: 'RMSE', description: 'Root Mean Square Error' },
+        { value: 'rsquared', label: 'R²', description: 'Coefficiente di determinazione' }
+      ];
+    }
+  }
+
+  // Get analysis type description
+  getAnalysisTypeDescription(): string {
+    if (this.isClassification) {
+      return 'Analisi di Classificazione - La variabile outcome è categorica';
+    }
+    return 'Analisi di Regressione - La variabile outcome è continua';
+  }
+
+  // Update metric defaults based on analysis type
+  updateMetricDefaults(): void {
+    if (this.isClassification) {
+      // Set appropriate classification metrics
+      const defaultMetric = 'accuracy';
+      this.options.multivariateAnalysis.ridge.metric = defaultMetric as any;
+      this.options.multivariateAnalysis.lasso.metric = defaultMetric as any;
+      this.options.multivariateAnalysis.elasticNet.metric = defaultMetric as any;
+      this.options.multivariateAnalysis.rfe.metric = defaultMetric as any;
+      
+      // Clear regression-specific options
+      this.options.statisticalTests = [];
+      this.options.linearRegression = false;
+      this.options.linearRegressionWithoutInfluentials = false;
+      this.options.groupingMethod = 'none';
+      this.options.thresholdValues = [];
+    } else {
+      // Keep regression metrics (rmse is already default)
+      const defaultMetric = 'rmse';
+      this.options.multivariateAnalysis.ridge.metric = defaultMetric as any;
+      this.options.multivariateAnalysis.lasso.metric = defaultMetric as any;
+      this.options.multivariateAnalysis.elasticNet.metric = defaultMetric as any;
+      this.options.multivariateAnalysis.rfe.metric = defaultMetric as any;
+    }
+  }
 
   constructor(
     private router: Router,
@@ -1837,6 +2121,20 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
 
     this.originalFileName = fileData.fileName;
     this.preprocessingInfo = preprocessingOptions;
+
+    // Debug: Log preprocessing info and analysis type detection
+    console.log('Preprocessing Info:', this.preprocessingInfo);
+    console.log('Session ID:', this.preprocessingInfo?.sessionId);
+    console.log('User ID:', this.preprocessingInfo?.userId);
+    console.log('Outcome Type:', this.preprocessingInfo?.columnClassification?.outcomeType);
+    console.log('Analysis Type:', this.analysisType);
+    console.log('Is Classification:', this.isClassification);
+
+    // Set analysis type based on preprocessing outcome type
+    this.options.analysisType = this.analysisType;
+
+    // Update metric defaults for the analysis type
+    this.updateMetricDefaults();
 
     // Load preview of preprocessed file
     if (fileData.processedFile) {
@@ -2086,6 +2384,33 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     return this.isColumnType(header, 'covariateColumns');
   }
 
+  getMaxColumns(): number {
+    const preview = this.filePreview();
+    if (!preview || !preview.headers) return 0;
+    
+    // Count omics and covariate columns
+    const omicsCount = preview.headers.filter(header => this.isOmicsColumn(header)).length;
+    const covariateCount = preview.headers.filter(header => this.isCovariateColumn(header)).length;
+    
+    return omicsCount + covariateCount;
+  }
+
+  getRFEMaxColumns(): number {
+    const preview = this.filePreview();
+    if (!preview || !preview.headers) return 0;
+    
+    // Count omics columns
+    const omicsCount = preview.headers.filter(header => this.isOmicsColumn(header)).length;
+    
+    // If RFE includes covariates, add covariate count
+    if (this.options.multivariateAnalysis.rfe.includeCovariates) {
+      const covariateCount = preview.headers.filter(header => this.isCovariateColumn(header)).length;
+      return omicsCount + covariateCount;
+    }
+    
+    return omicsCount;
+  }
+
   formatCell(value: any): string {
     if (value === null || value === undefined) return '';
     if (typeof value === 'number') {
@@ -2154,6 +2479,50 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     this.createOutcomeHistogram(); // Update histogram with new thresholds
   }
 
+  validateRFESubsetSizes() {
+    this.rfeSubsetSizeError = '';
+    
+    if (!this.options.multivariateAnalysis.rfe.customSubsetSizes?.trim()) {
+      return;
+    }
+
+    const input = this.options.multivariateAnalysis.rfe.customSubsetSizes.trim();
+    const values = input.split(',').map(v => v.trim());
+    const numbers: number[] = [];
+
+    // Check if all values are valid numbers
+    for (const value of values) {
+      const num = parseInt(value, 10);
+      if (isNaN(num) || num <= 0) {
+        this.rfeSubsetSizeError = `Valore non valido: ${value}. Inserisci solo numeri interi positivi.`;
+        return;
+      }
+      numbers.push(num);
+    }
+
+    // Check if values are in ascending order
+    for (let i = 1; i < numbers.length; i++) {
+      if (numbers[i] <= numbers[i-1]) {
+        this.rfeSubsetSizeError = 'I valori devono essere in ordine crescente.';
+        return;
+      }
+    }
+
+    // Check if any value exceeds the maximum allowed columns
+    const maxColumns = this.getRFEMaxColumns();
+    const exceedingValues = numbers.filter(num => num > maxColumns);
+    
+    if (exceedingValues.length > 0) {
+      this.rfeSubsetSizeError = `I seguenti valori superano il numero massimo di colonne disponibili (${maxColumns}): ${exceedingValues.join(', ')}`;
+      return;
+    }
+  }
+
+  onRFEIncludeCovariatesChange() {
+    // Re-validate subset sizes when include covariates option changes
+    this.validateRFESubsetSizes();
+  }
+
   isTestSelected(testId: string): boolean {
     return this.options.statisticalTests.includes(testId);
   }
@@ -2190,7 +2559,12 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
   }
 
   isValid(): boolean {
-    // Check if at least one test is selected
+    // For classification analysis, only multivariate methods are needed
+    if (this.isClassification) {
+      return this.hasMultivariateMethodSelected();
+    }
+
+    // For regression analysis, check statistical tests or regression methods
     const hasTests = this.options.statisticalTests.length > 0 ||
                     this.options.linearRegression ||
                     this.hasMultivariateMethodSelected();
@@ -2226,9 +2600,16 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
       test => this.bivariateTests.includes(test)
     );
 
-    // Propaga sessionId in options
-    const sessionId = window.sessionStorage.getItem('sessionId') || crypto.randomUUID();
-    this.dataFlowService.setAnalysisOptions({ ...this.options, sessionId });
+    // Get sessionId and userId from preprocessing options to ensure consistency
+    const sessionId = this.preprocessingInfo?.sessionId || window.sessionStorage.getItem('sessionId') || crypto.randomUUID();
+    const userId = this.preprocessingInfo?.userId || window.sessionStorage.getItem('userId') || 'MasterTest';
+    
+    // Propagate both sessionId and userId in options
+    this.dataFlowService.setAnalysisOptions({ 
+      ...this.options, 
+      sessionId,
+      userId 
+    });
     this.navigationService.updateNavigationStatus();
     this.navigationService.navigateToStep('results');
   }
