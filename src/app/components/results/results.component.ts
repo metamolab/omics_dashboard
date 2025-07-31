@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, AfterViewChecked, DoCheck } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatSortModule } from '@angular/material/sort';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -65,39 +65,23 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                   <div class="test-card">
                     <h2>{{ getTestDisplayName(selectedTab) }}</h2>
                     <div class="test-layout" style="display: flex; gap: 32px; align-items: flex-start;">
-                      <div class="test-table" style="flex: 1;">
+                      <div class="test-table" style="flex: 2;">
                         <table mat-table [dataSource]="tableDataSource" matSort #sort="matSort" class="mat-elevation-z1" style="width: 100%;">
-                          <!-- Gene Column -->
-                          <ng-container matColumnDef="variable">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Gene</th>
-                            <td mat-cell *matCellDef="let row">{{ row.variable }}</td>
-                          </ng-container>
-                          <!-- Estimate Column -->
-                          <ng-container matColumnDef="estimate">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Estimate</th>
-                            <td mat-cell *matCellDef="let row" style="text-align: right;">{{ formatNumberCell(row.estimate) }}</td>
-                          </ng-container>
-                          <!-- p-value Column -->
-                          <ng-container matColumnDef="pValue">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header>p-value</th>
-                            <td mat-cell *matCellDef="let row" style="text-align: right;">{{ formatNumberCell(row.pValue) }}</td>
-                          </ng-container>
-                          <!-- FDR Column -->
-                          <ng-container matColumnDef="fdr">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header>FDR</th>
-                            <td mat-cell *matCellDef="let row" style="text-align: right;">{{ formatNumberCell(row.fdr) }}</td>
-                          </ng-container>
-                          <!-- Statistic Column -->
-                          <ng-container matColumnDef="statistic">
-                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Statistic</th>
-                            <td mat-cell *matCellDef="let row" style="text-align: right;">{{ formatNumberCell(row.statistic) }}</td>
-                          </ng-container>
+                          <!-- Dynamic Columns -->
+                          @for (column of displayedColumns; track column) {
+                            <ng-container [matColumnDef]="column">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ getColumnDisplayName(column) }}</th>
+                              <td mat-cell *matCellDef="let row" [style.text-align]="isNumericColumn(column) ? 'right' : 'left'">
+                                {{ formatCellValue(row[column], column) }}
+                              </td>
+                            </ng-container>
+                          }
                           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="{'significant-row': row.fdr < 0.05}"></tr>
+                          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
                         </table>
                         <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
                       </div>
-                      <div class="volcano-plot" [attr.id]="'volcano-plot-' + selectedTab" style="flex: 1; min-width: 400px; height: 400px;"></div>
+                      <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
                     </div>
                   </div>
                 }
@@ -381,11 +365,37 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       border-top: none;
       padding: 24px;
     }
+
+    /* Table Styles */
+    .significant-pvalue {
+      background-color: #dbeafe !important; /* Light blue for p-value < 0.05 */
+    }
+    
+    .significant-pvalue:hover {
+      background-color: #bfdbfe !important;
+    }
+
+    .significant-fdr {
+      background-color: #dcfce7 !important; /* Light green for FDR < 0.05 */
+    }
+    
+    .significant-fdr:hover {
+      background-color: #bbf7d0 !important;
+    }
+
+    .mat-mdc-table {
+      background: white;
+    }
+
+    .mat-mdc-header-cell {
+      font-weight: 600;
+      color: #374151;
+    }
   `]
 })
-export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked, OnDestroy {
-  // Angular Material table/filter/sort logic
-  displayedColumns: string[] = ['variable', 'estimate', 'pValue', 'fdr', 'statistic'];
+export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked, DoCheck, OnDestroy {
+  // Angular Material table/filter/sort logic - now dynamic
+  displayedColumns: string[] = [];
   @ViewChild('distributionPlot') distributionPlot?: ElementRef;
   @ViewChild('correlationPlot') correlationPlot?: ElementRef;
   @ViewChild('boxPlot') boxPlot?: ElementRef;
@@ -416,11 +426,15 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   selectTab(tabName: string) {
     if (this.selectedTab === tabName) return;
     // Prima pulisci il vecchio plot se esiste
-    const oldPlotContainer = document.getElementById('volcano-plot-' + this.selectedTab);
+    const oldPlotContainer = document.getElementById('manhattan-plot-' + this.selectedTab);
     if (oldPlotContainer) {
       this.plotlyService.purge(oldPlotContainer);
     }
     this.selectedTab = tabName;
+    
+    // Update table structure and data for the new tab
+    this.updateTableForCurrentTab();
+    
     this.cdr.detectChanges();
     // Crea il nuovo plot
     setTimeout(() => {
@@ -430,15 +444,171 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   updateTableDataSource() {
-  const data = this.getTestData(this.selectedTab || '');
-  this.tableDataSource.data = data;
-  if (this.paginator) {
-    this.tableDataSource.paginator = this.paginator;
+    const data = this.getTestData(this.selectedTab || '');
+    this.tableDataSource.data = data;
+    
+    // Force change detection and reconnect paginator/sort
+    setTimeout(() => {
+      if (this.paginator) {
+        this.tableDataSource.paginator = this.paginator;
+        this.paginator.firstPage(); // Reset to first page
+      }
+      if (this.sort) {
+        this.tableDataSource.sort = this.sort;
+        this.sort.active = ''; // Reset sorting
+        this.sort.direction = '';
+      }
+      this.cdr.detectChanges();
+    }, 0);
   }
-  if (this.sort) {
-    this.tableDataSource.sort = this.sort;
+
+  updateTableForCurrentTab() {
+    if (!this.selectedTab) return;
+    
+    // Get the columns for the current test
+    this.displayedColumns = this.getColumnsForTest(this.selectedTab);
+    
+    // Update the data source with proper reinitialization
+    this.updateTableDataSource();
+    
+    // Force view update to ensure Material Table recognizes new structure
+    this.cdr.detectChanges();
   }
-}
+
+  getColumnsForTest(testName: string): string[] {
+    const testData = this.getTestData(testName);
+    if (!testData || testData.length === 0) {
+      return [];
+    }
+    
+    // Get all unique keys from the first few rows to determine columns
+    const sampleSize = Math.min(5, testData.length);
+    const allKeys = new Set<string>();
+    
+    for (let i = 0; i < sampleSize; i++) {
+      Object.keys(testData[i] || {}).forEach(key => allKeys.add(key));
+    }
+    
+    return Array.from(allKeys);
+  }
+
+  getColumnDisplayName(columnKey: string): string {
+    // Map internal column names to user-friendly display names
+    const columnMap: { [key: string]: string } = {
+      'variable': 'Variable',
+      'gene': 'Gene',
+      'feature': 'Feature',
+      'estimate': 'Estimate',
+      'logFC': 'Log FC',
+      'coefficient': 'Coefficient',
+      'pValue': 'p-value',
+      'pval': 'p-value',
+      'p_value': 'p-value',
+      'fdr': 'FDR',
+      'adj_pval': 'Adj. p-value',
+      'padj': 'Adj. p-value',
+      'statistic': 'Statistic',
+      'tstat': 't-statistic',
+      'zstat': 'z-statistic',
+      'correlation': 'Correlation',
+      'importance': 'Importance',
+      'decision': 'Decision',
+      'rank': 'Rank'
+    };
+    
+    return columnMap[columnKey] || this.formatColumnName(columnKey);
+  }
+
+  private formatColumnName(columnKey: string): string {
+    // Convert camelCase or snake_case to Title Case
+    return columnKey
+      .replace(/([A-Z])/g, ' $1') // camelCase to space separated
+      .replace(/_/g, ' ') // snake_case to space separated
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+      .trim();
+  }
+
+  isNumericColumn(columnKey: string): boolean {
+    // Define which columns should be treated as numeric for right alignment
+    const numericColumns = [
+      'estimate', 'logFC', 'coefficient', 'pValue', 'pval', 'p_value',
+      'fdr', 'adj_pval', 'padj', 'statistic', 'tstat', 'zstat',
+      'correlation', 'importance', 'rank'
+    ];
+    return numericColumns.includes(columnKey);
+  }
+
+  formatCellValue(value: any, columnKey: string): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    // Special formatting for different column types
+    if (this.isNumericColumn(columnKey)) {
+      const numValue = Number(value);
+      if (!isNaN(numValue)) {
+        // Use scientific notation for very large or very small numbers
+        if (Math.abs(numValue) >= 1e6 || (Math.abs(numValue) <= 1e-6 && numValue !== 0)) {
+          return numValue.toExponential(2);
+        }
+        
+        // Different precision for different types of values using standard notation
+        if (columnKey.includes('pValue') || columnKey.includes('fdr') || 
+            columnKey.includes('pval') || columnKey.includes('padj')) {
+          return numValue.toFixed(6); // 6 decimals for p-values in standard notation
+        } else if (columnKey.includes('correlation')) {
+          return numValue.toFixed(3); // 3 decimals for correlations
+        } else {
+          return numValue.toFixed(4); // 4 decimals for other numeric values
+        }
+      }
+    }
+    
+    // For boolean or categorical values
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+    
+    return value.toString();
+  }
+
+  getRowClass(row: any): string {
+    // Dynamic row styling based on significance
+    const classes: string[] = [];
+    
+    // Check for FDR significance first (higher priority - light green)
+    const fdrFields = ['fdr', 'adj_pval', 'padj'];
+    for (const field of fdrFields) {
+      if (row[field] !== undefined && row[field] !== null) {
+        const fdrVal = Number(row[field]);
+        if (!isNaN(fdrVal) && fdrVal < 0.05) {
+          classes.push('significant-fdr');
+          return classes.join(' '); // Return early, FDR takes priority
+        }
+      }
+    }
+    
+    // Check for p-value significance (light blue)
+    const pValueFields = ['pValue', 'pval', 'p_value'];
+    for (const field of pValueFields) {
+      if (row[field] !== undefined && row[field] !== null) {
+        const pVal = Number(row[field]);
+        if (!isNaN(pVal) && pVal < 0.05) {
+          classes.push('significant-pvalue');
+          break;
+        }
+      }
+    }
+    
+    // Check for decision-based significance (e.g., Boruta results)
+    if (row.decision && (row.decision === 'Confirmed' || row.decision === 'Important')) {
+      classes.push('significant-fdr'); // Use green for confirmed features
+    }
+    
+    return classes.join(' ');
+  }
 
   ngOnInit() {
     // Check prerequisites
@@ -462,17 +632,26 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       if (testNames.length > 0) {
         this.selectedTab = testNames[0];
         this.lastTab = this.selectedTab;
-        this.updateTableDataSource();
+        this.updateTableForCurrentTab();
       }
       setTimeout(() => this.createPlots(), 0);
     }
-
+    
+    // Initialize table components
+    setTimeout(() => {
+      if (this.paginator) {
+        this.tableDataSource.paginator = this.paginator;
+      }
+      if (this.sort) {
+        this.tableDataSource.sort = this.sort;
+      }
+    }, 100);
   }
 
   ngAfterViewChecked() {
     // Se la tab è cambiata, aggiorna il plot solo se non è già stato fatto
     if (this.selectedTab && this.selectedTab !== this.lastTab) {
-      const plotContainer = document.getElementById('volcano-plot-' + this.selectedTab);
+      const plotContainer = document.getElementById('manhattan-plot-' + this.selectedTab);
       if (plotContainer && !plotContainer.hasChildNodes()) {
         setTimeout(() => this.createPlots(), 100);
       }
@@ -485,7 +664,17 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     if (testNames.length > 0 && (!this.selectedTab || !testNames.includes(this.selectedTab))) {
       this.selectedTab = testNames[0];
       this.lastTab = this.selectedTab;
-      this.updateTableDataSource();
+      this.updateTableForCurrentTab();
+      
+      // Ensure table components are properly connected after tab change
+      setTimeout(() => {
+        if (this.paginator) {
+          this.tableDataSource.paginator = this.paginator;
+        }
+        if (this.sort) {
+          this.tableDataSource.sort = this.sort;
+        }
+      }, 50);
     }
   }
 
@@ -595,14 +784,14 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   private createPlots() {
-    // Crea volcano plot solo per il tab attivo
+    // Crea manhattan plot solo per il tab attivo
     const results = this.results()?.results;
     if (!results || !this.selectedTab) return;
     
     const test = results[this.selectedTab];
     if (!test?.data || test.data.length === 0) return;
     
-    const plotContainer = document.getElementById('volcano-plot-' + this.selectedTab);
+    const plotContainer = document.getElementById('manhattan-plot-' + this.selectedTab);
     if (!plotContainer) {
       console.warn('Plot container not found for tab:', this.selectedTab);
       return;
@@ -623,19 +812,26 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       // Filter data to include only valid rows
       let invalidCount = 0;
       const validData = test.data.filter((row: any) => {
-        const x = Number(row.estimate);
-        const p = Number(row.pValue);
+        // Detect p-value column dynamically
+        const pValueFields = ['pValue', 'pval', 'p_value'];
+        const pValueField = pValueFields.find(field => row[field] !== undefined && row[field] !== null);
         
-        const isValid = !isNaN(x) && !isNaN(p) && p > 0;
+        if (!pValueField) return false;
+        
+        const p = Number(row[pValueField]);
+        const hasVariable = row.variable && row.variable.toString().trim() !== '';
+        
+        const isValid = !isNaN(p) && p > 0 && hasVariable;
         if (!isValid) {
           invalidCount++;
           if (invalidCount <= 5) { // Log only first 5 invalid rows to avoid console spam
             console.warn('Invalid data point:', {
               row,
-              estimate: `${row.estimate} (${typeof row.estimate})`,
-              pValue: `${row.pValue} (${typeof row.pValue})`,
-              parsedEstimate: x,
-              parsedPValue: p
+              variable: `${row.variable} (${typeof row.variable})`,
+              pValueField,
+              pValue: `${row[pValueField]} (${typeof row[pValueField]})`,
+              parsedPValue: p,
+              hasVariable
             });
           }
         }
@@ -646,7 +842,8 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
         totalPoints: test.data.length,
         validPoints: validData.length,
         invalidPoints: invalidCount,
-        validationRate: `${((validData.length / test.data.length) * 100).toFixed(1)}%`
+        validationRate: `${((validData.length / test.data.length) * 100).toFixed(1)}%`,
+        availableColumns: Object.keys(test.data[0] || {})
       });
 
       if (validData.length === 0) {
@@ -654,47 +851,34 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
         return;
       }
       
-      const x = validData.map((row: any) => Array.isArray(row.estimate) ? row.estimate[0] : row.estimate);
-      const y = validData.map((row: any) => -Math.log10(row.pValue));
-
-
-
-      const labels = validData.map((row: any) => {
-        const estimate = Number(row.estimate);
-        const pValue = Number(row.pValue);
-        const fdr = Number(row.fdr);
-        const statistic = Number(row.statistic);
-        
-        return `Gene: ${row.variable || 'Unknown'}<br>` +
-               `Estimate: ${!isNaN(estimate) ? estimate.toFixed(4) : 'N/A'}<br>` +
-               `p-value: ${!isNaN(pValue) ? pValue.toFixed(4) : 'N/A'}<br>` +
-               `FDR: ${!isNaN(fdr) ? fdr.toFixed(4) : 'N/A'}<br>` +
-               `Statistic: ${!isNaN(statistic) ? statistic.toFixed(4) : 'N/A'}`;
-      });
+      // Detect the actual p-value column name
+      const pValueFields = ['pValue', 'pval', 'p_value'];
+      const pValueColumn = pValueFields.find(field => validData[0][field] !== undefined) || 'pValue';
       
-      console.log(x);
-      console.log(y);
-      console.log(labels);
+      console.log('Using p-value column:', pValueColumn);
+      console.log('Sample data point:', validData[0]);
 
-      this.plotlyService.createVolcanoPlot(
+      this.plotlyService.createManhattanPlot(
         plotContainer,
-        x,
-        y,
-        labels,
+        validData,
         {
-          title: `Volcano Plot - ${test.testName || this.selectedTab}`,
-          xaxis: 'Estimate',
-          yaxis: '-log10(p-value)'
+          title: `Manhattan Plot - ${test.testName || this.selectedTab}`,
+          xaxis: 'Variables',
+          yaxis: '-log10(p-value)',
+          significanceLine: true,
+          significanceThreshold: -Math.log10(0.05),
+          variableColumn: 'variable',
+          pValueColumn: pValueColumn
         }
       );
     } catch (error) {
-      console.error('Error creating volcano plot:', error);
+      console.error('Error creating manhattan plot:', error);
       // Mostra un messaggio di errore nel container del plot
       plotContainer.innerHTML = `
         <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444; text-align: center;">
           <div>
-            <p>Errore nella creazione del volcano plot.</p>
-            <p>Verifica che i dati contengano valori validi per estimate/logFC e p-value.</p>
+            <p>Errore nella creazione del manhattan plot.</p>
+            <p>Verifica che i dati contengano valori validi per variable e p-value.</p>
           </div>
         </div>
       `;
