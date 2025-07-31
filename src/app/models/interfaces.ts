@@ -59,8 +59,8 @@ export interface MultivariateMethodConfig {
 export interface RandomForestConfig {
   enabled: boolean;
   ntree: 100 | 500 | 1000;
-  mtrySelection: 'automatic' | 'manual';
-  mtryValue?: number;
+  mtrySelection: 'automatic' | 'tuning' | 'manual';
+  mtryValue: number;
   includeCovariates: boolean;
 }
 
@@ -68,7 +68,7 @@ export interface BorutaConfig {
   enabled: boolean;
   ntree: 100 | 500 | 1000;
   mtrySelection: 'automatic' | 'manual';
-  mtryValue?: number;
+  mtryValue: number;
   maxRuns: number;
   roughFixTentativeFeatures: boolean;
   includeCovariates: boolean;

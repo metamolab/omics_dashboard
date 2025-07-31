@@ -50,42 +50,251 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
             <p>Ecco i risultati delle tue analisi</p>
           </div>
 
-          <!-- Tabset per ogni test -->
-          @if (getTestNames().length > 0) {
-            <div class="test-tabset">
-              <ul class="test-tabs">
-                @for (testKey of getTestNames(); track testKey) {
-                  <li class="test-tab" [class.active]="selectedTab === testKey" (click)="selectTab(testKey)">
-                    {{ getTestDisplayName(testKey) }}
-                  </li>
-                }
-              </ul>
-              <div class="test-tab-content">
-                @if (selectedTab) {
-                  <div class="test-card">
-                    <h2>{{ getTestDisplayName(selectedTab) }}</h2>
-                    <div class="test-layout" style="display: flex; gap: 32px; align-items: flex-start;">
-                      <div class="test-table" style="flex: 2;">
-                        <table mat-table [dataSource]="tableDataSource" matSort #sort="matSort" class="mat-elevation-z1" style="width: 100%;">
-                          <!-- Dynamic Columns -->
-                          @for (column of displayedColumns; track column) {
-                            <ng-container [matColumnDef]="column">
-                              <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ getColumnDisplayName(column) }}</th>
-                              <td mat-cell *matCellDef="let row" [style.text-align]="isNumericColumn(column) ? 'right' : 'left'">
-                                {{ formatCellValue(row[column], column) }}
-                              </td>
-                            </ng-container>
-                          }
-                          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
-                        </table>
-                        <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+          <!-- Main Section Navigation -->
+          <div class="section-navigation">
+            <ul class="section-tabs">
+              <li class="section-tab" [class.active]="selectedSection === 'bivariate'" (click)="selectSection('bivariate')">
+                <span class="section-icon">📊</span>
+                <span class="section-label">Analisi Bivariate</span>
+                <span class="section-count">({{ getBivariateTests().length }})</span>
+              </li>
+              <li class="section-tab" [class.active]="selectedSection === 'multivariate'" (click)="selectSection('multivariate')">
+                <span class="section-icon">🔬</span>
+                <span class="section-label">Analisi Multivariate</span>
+                <span class="section-count">({{ getMultivariateTests().length }})</span>
+              </li>
+              <li class="section-tab" [class.active]="selectedSection === 'summary'" (click)="selectSection('summary')">
+                <span class="section-icon">📋</span>
+                <span class="section-label">Riepilogo</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Bivariate Tests Section -->
+          @if (selectedSection === 'bivariate' && getBivariateTests().length > 0) {
+            <div class="test-section">
+              <div class="section-header">
+                <h2>Analisi Bivariate</h2>
+                <p>Test di correlazione e associazione tra variabili</p>
+              </div>
+              <div class="test-tabset">
+                <ul class="test-tabs">
+                  @for (testKey of getBivariateTests(); track testKey) {
+                    <li class="test-tab" [class.active]="selectedBivariateTab === testKey" (click)="selectBivariateTab(testKey)">
+                      {{ getTestDisplayName(testKey) }}
+                    </li>
+                  }
+                </ul>
+                <div class="test-tab-content">
+                  @if (selectedBivariateTab) {
+                    <!-- Linear Regression Special Layout -->
+                    @if (isLinearRegressionTest(selectedBivariateTab)) {
+                      <div class="test-card">
+                        <h3>{{ getTestDisplayName(selectedBivariateTab) }}</h3>
+                        
+                        <!-- Linear Regression Formula -->
+                        @if (getLinearRegressionFormula(selectedBivariateTab)) {
+                          <div class="regression-formula">
+                            <h4>Formula del Modello</h4>
+                            <div class="formula-display">
+                              {{ getLinearRegressionFormula(selectedBivariateTab) }}
+                            </div>
+                          </div>
+                        }
+                        
+                        <!-- Main Linear Regression Results -->
+                        <div class="regression-section">
+                          <h4>Risultati Regressione Lineare</h4>
+                          <div class="test-layout" style="display: flex; gap: 32px; align-items: flex-start;">
+                            <div class="test-table" style="flex: 2;">
+                              <table mat-table [dataSource]="tableDataSource" matSort #sort="matSort" class="mat-elevation-z1" style="width: 100%;">
+                                <!-- Dynamic Columns -->
+                                @for (column of displayedColumns; track column) {
+                                  <ng-container [matColumnDef]="column">
+                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ getColumnDisplayName(column) }}</th>
+                                    <td mat-cell *matCellDef="let row" [style.text-align]="isNumericColumn(column) ? 'right' : 'left'">
+                                      {{ formatCellValue(row[column], column) }}
+                                    </td>
+                                  </ng-container>
+                                }
+                                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
+                              </table>
+                              <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                            </div>
+                            <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
+                          </div>
+                        </div>
+                        
+                        <!-- Results without Influentials (if present) -->
+                        @if (hasInfluentialRemovedData(selectedBivariateTab)) {
+                          <div class="regression-section">
+                            <h4>Risultati senza Valori Influenti</h4>
+                            <div class="test-layout" style="display: flex; gap: 32px; align-items: flex-start;">
+                              <div class="test-table" style="flex: 2;">
+                                <table mat-table [dataSource]="influentialRemovedDataSource" matSort class="mat-elevation-z1" style="width: 100%;">
+                                  <!-- Dynamic Columns for influential removed data -->
+                                  @for (column of influentialRemovedColumns; track column) {
+                                    <ng-container [matColumnDef]="column">
+                                      <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ getColumnDisplayName(column) }}</th>
+                                      <td mat-cell *matCellDef="let row" [style.text-align]="isNumericColumn(column) ? 'right' : 'left'">
+                                        {{ formatCellValue(row[column], column) }}
+                                      </td>
+                                    </ng-container>
+                                  }
+                                  <tr mat-header-row *matHeaderRowDef="influentialRemovedColumns"></tr>
+                                  <tr mat-row *matRowDef="let row; columns: influentialRemovedColumns;" [ngClass]="getRowClass(row)"></tr>
+                                </table>
+                                <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                              </div>
+                              <div class="manhattan-plot" [attr.id]="'manhattan-plot-no-influential-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
+                            </div>
+                          </div>
+                        }
                       </div>
-                      <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
+                    } @else {
+                      <!-- Standard Test Layout -->
+                      <div class="test-card">
+                        <h3>{{ getTestDisplayName(selectedBivariateTab) }}</h3>
+                        <div class="test-layout" style="display: flex; gap: 32px; align-items: flex-start;">
+                          <div class="test-table" style="flex: 2;">
+                            <table mat-table [dataSource]="tableDataSource" matSort #sort="matSort" class="mat-elevation-z1" style="width: 100%;">
+                              <!-- Dynamic Columns -->
+                              @for (column of displayedColumns; track column) {
+                                <ng-container [matColumnDef]="column">
+                                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ getColumnDisplayName(column) }}</th>
+                                  <td mat-cell *matCellDef="let row" [style.text-align]="isNumericColumn(column) ? 'right' : 'left'">
+                                    {{ formatCellValue(row[column], column) }}
+                                  </td>
+                                </ng-container>
+                              }
+                              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                              <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
+                            </table>
+                            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                          </div>
+                          <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Multivariate Tests Section -->
+          @if (selectedSection === 'multivariate' && getMultivariateTests().length > 0) {
+            <div class="test-section">
+              <div class="section-header">
+                <h2>Analisi Multivariate</h2>
+                <p>Modelli complessi e analisi multidimensionali</p>
+              </div>
+              <div class="test-tabset">
+                <ul class="test-tabs">
+                  @for (testKey of getMultivariateTests(); track testKey) {
+                    <li class="test-tab" [class.active]="selectedMultivariateTab === testKey" (click)="selectMultivariateTab(testKey)">
+                      {{ getTestDisplayName(testKey) }}
+                    </li>
+                  }
+                </ul>
+                <div class="test-tab-content">
+                  @if (selectedMultivariateTab) {
+                    <div class="test-card">
+                      <h3>{{ getTestDisplayName(selectedMultivariateTab) }}</h3>
+                      
+                      <!-- Ridge/Lasso/Elastic Net Header Info -->
+                      @if (isRegularizationMethod(selectedMultivariateTab)) {
+                        <div class="regularization-info">
+                          <div class="info-cards">
+                            <div class="info-card">
+                              <span class="info-label">Lambda Scelto</span>
+                              <span class="info-value">{{ getChosenLambda(selectedMultivariateTab) }}</span>
+                            </div>
+                            @if (selectedMultivariateTab === 'elasticNet') {
+                              <div class="info-card">
+                                <span class="info-label">Alpha Scelto</span>
+                                <span class="info-value">{{ getChosenAlpha(selectedMultivariateTab) }}</span>
+                              </div>
+                            }
+                            <div class="info-card">
+                              <span class="info-label">Metrica Migliore</span>
+                              <span class="info-value">{{ getBestMetric(selectedMultivariateTab) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                      
+                      <div class="test-layout" style="display: flex; gap: 32px; align-items: flex-start;">
+                        <div class="test-table" style="flex: 2;">
+                          <table mat-table [dataSource]="tableDataSource" matSort #sort="matSort" class="mat-elevation-z1" style="width: 100%;">
+                            <!-- Dynamic Columns -->
+                            @for (column of displayedColumns; track column) {
+                              <ng-container [matColumnDef]="column">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ getColumnDisplayName(column) }}</th>
+                                <td mat-cell *matCellDef="let row" [style.text-align]="isNumericColumn(column) ? 'right' : 'left'">
+                                  {{ formatCellValue(row[column], column) }}
+                                </td>
+                              </ng-container>
+                            }
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
+                          </table>
+                          <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                        </div>
+                        <div class="feature-importance-plot" [attr.id]="'feature-plot-' + selectedMultivariateTab" style="flex: 1; min-width: 300px; height: 400px;">
+                          @if (isRegularizationMethod(selectedMultivariateTab)) {
+                            <!-- Feature importance plot will be rendered here -->
+                          } @else {
+                            <!-- Manhattan plot for other multivariate methods -->
+                            <div [attr.id]="'manhattan-plot-' + selectedMultivariateTab" style="width: 100%; height: 100%;"></div>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Summary Section -->
+          @if (selectedSection === 'summary') {
+            <div class="test-section">
+              <div class="section-header">
+                <h2>Riepilogo dell'Analisi</h2>
+                <p>Panoramica generale dei risultati ottenuti</p>
+              </div>
+              <div class="test-tabset">
+                <ul class="test-tabs">
+                  <li class="test-tab active">
+                    Riepilogo Generale
+                  </li>
+                </ul>
+                <div class="test-tab-content">
+                  <div class="test-card">
+                    <h3>Riepilogo Generale</h3>
+                    <div class="summary-content">
+                      <div class="summary-placeholder">
+                        <div class="placeholder-icon">📈</div>
+                        <h4>Sezione Riepilogo</h4>
+                        <p>Questa sezione conterrà un riepilogo completo di tutti i risultati dell'analisi.</p>
+                        <p class="placeholder-note">Funzionalità in fase di sviluppo...</p>
+                      </div>
                     </div>
                   </div>
-                }
+                </div>
               </div>
+            </div>
+          }
+
+          <!-- Empty State -->
+          @if ((selectedSection === 'bivariate' && getBivariateTests().length === 0) || 
+               (selectedSection === 'multivariate' && getMultivariateTests().length === 0)) {
+            <div class="empty-section">
+              <div class="empty-icon">🔍</div>
+              <h3>Nessun risultato trovato</h3>
+              <p>Non sono stati trovati risultati per questa categoria di test.</p>
             </div>
           }
 
@@ -327,6 +536,136 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       background: #ef4444;
       box-shadow: 0 4px 12px rgba(248, 113, 113, 0.2);
     }
+
+    /* Section Navigation Styles */
+    .section-navigation {
+      margin-bottom: 32px;
+    }
+    .section-tabs {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      list-style: none;
+      padding: 0;
+      justify-content: center;
+    }
+    .section-tab {
+      padding: 16px 24px;
+      background: white;
+      border: 2px solid #bae6fd;
+      border-radius: 12px;
+      color: #0284c7;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 180px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .section-tab:hover {
+      border-color: #06b6d4;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    .section-tab.active {
+      background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+      color: white;
+      border-color: #06b6d4;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(6, 182, 212, 0.3);
+    }
+    .section-icon {
+      font-size: 24px;
+    }
+    .section-label {
+      font-weight: 600;
+    }
+    .section-count {
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    /* Section Content Styles */
+    .test-section {
+      margin-bottom: 32px;
+    }
+    .section-header {
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .section-header h2 {
+      color: #0f172a;
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .section-header p {
+      color: #64748b;
+      margin: 0;
+      font-size: 16px;
+    }
+
+    /* Summary Section Styles */
+    .summary-content {
+      padding: 24px;
+    }
+    .summary-placeholder {
+      text-align: center;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .placeholder-icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+    }
+    .summary-placeholder h4 {
+      color: #0f172a;
+      margin: 0 0 16px 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .summary-placeholder p {
+      color: #64748b;
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    .placeholder-note {
+      color: #94a3b8 !important;
+      font-style: italic;
+      font-size: 14px !important;
+    }
+
+    /* Empty State Styles */
+    .empty-section {
+      background: white;
+      border-radius: 12px;
+      padding: 48px;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      border: 2px solid #e5e7eb;
+    }
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+    .empty-section h3 {
+      color: #6b7280;
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 500;
+    }
+    .empty-section p {
+      color: #9ca3af;
+      margin: 0;
+      font-size: 14px;
+    }
+
     /* Tabset styles */
     .test-tabset {
       margin-bottom: 32px;
@@ -366,6 +705,45 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       padding: 24px;
     }
 
+    /* Regularization Method Info Styles */
+    .regularization-info {
+      margin-bottom: 24px;
+      padding: 16px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border-radius: 8px;
+      border: 1px solid #bae6fd;
+    }
+    .info-cards {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .info-card {
+      background: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      border: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 120px;
+    }
+    .info-label {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 4px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .info-value {
+      font-size: 16px;
+      color: #0f172a;
+      font-weight: 600;
+    }
+
     /* Table Styles */
     .significant-pvalue {
       background-color: #dbeafe !important; /* Light blue for p-value < 0.05 */
@@ -391,6 +769,46 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       font-weight: 600;
       color: #374151;
     }
+
+    /* Linear Regression Specific Styles */
+    .regression-formula {
+      margin-bottom: 24px;
+      padding: 16px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border-radius: 8px;
+      border: 1px solid #bae6fd;
+    }
+    .regression-formula h4 {
+      margin: 0 0 12px 0;
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .formula-display {
+      font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      font-size: 14px;
+      color: #0c4a6e;
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      font-weight: 500;
+    }
+    .regression-section {
+      margin-bottom: 32px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    .regression-section h4 {
+      margin: 0 0 16px 0;
+      color: #0f172a;
+      font-size: 18px;
+      font-weight: 600;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #bae6fd;
+    }
   `]
 })
 export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked, DoCheck, OnDestroy {
@@ -405,12 +823,21 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort; 
 
+  // Linear regression specific data sources
+  influentialRemovedDataSource = new MatTableDataSource<any>([]);
+  influentialRemovedColumns: string[] = []; 
+
   loading = signal(true);
   error = signal<string | null>(null);
   results = signal<AnalysisResult | null>(null);
   showRawData = signal(false);
   selectedTab: string | null = null;
   private lastTab: string | null = null;
+  
+  // Section management
+  selectedSection: 'bivariate' | 'multivariate' | 'summary' = 'bivariate';
+  selectedBivariateTab: string | null = null;
+  selectedMultivariateTab: string | null = null;
 
   constructor(
     private router: Router,
@@ -430,6 +857,12 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     if (oldPlotContainer) {
       this.plotlyService.purge(oldPlotContainer);
     }
+    // Also clean up influential-removed plot if it exists
+    const oldInfluentialPlotContainer = document.getElementById('manhattan-plot-no-influential-' + this.selectedTab);
+    if (oldInfluentialPlotContainer) {
+      this.plotlyService.purge(oldInfluentialPlotContainer);
+    }
+    
     this.selectedTab = tabName;
     
     // Update table structure and data for the new tab
@@ -471,6 +904,11 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     // Update the data source with proper reinitialization
     this.updateTableDataSource();
     
+    // Handle linear regression tests with influential removed data
+    if (this.isLinearRegressionTest(this.selectedTab)) {
+      this.updateInfluentialRemovedTable(this.selectedTab);
+    }
+    
     // Force view update to ensure Material Table recognizes new structure
     this.cdr.detectChanges();
   }
@@ -496,11 +934,13 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     // Map internal column names to user-friendly display names
     const columnMap: { [key: string]: string } = {
       'variable': 'Variable',
+      'Variable': 'Variable',
       'gene': 'Gene',
       'feature': 'Feature',
       'estimate': 'Estimate',
       'logFC': 'Log FC',
       'coefficient': 'Coefficient',
+      'Coefficient': 'Coefficient',
       'pValue': 'p-value',
       'pval': 'p-value',
       'p_value': 'p-value',
@@ -513,7 +953,8 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       'correlation': 'Correlation',
       'importance': 'Importance',
       'decision': 'Decision',
-      'rank': 'Rank'
+      'rank': 'Rank',
+      'sign': 'Sign'
     };
     
     return columnMap[columnKey] || this.formatColumnName(columnKey);
@@ -533,9 +974,9 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   isNumericColumn(columnKey: string): boolean {
     // Define which columns should be treated as numeric for right alignment
     const numericColumns = [
-      'estimate', 'logFC', 'coefficient', 'pValue', 'pval', 'p_value',
+      'estimate', 'logFC', 'coefficient', 'Coefficient', 'pValue', 'pval', 'p_value',
       'fdr', 'adj_pval', 'padj', 'statistic', 'tstat', 'zstat',
-      'correlation', 'importance', 'rank'
+      'correlation', 'importance', 'rank', 'sign'
     ];
     return numericColumns.includes(columnKey);
   }
@@ -543,6 +984,14 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   formatCellValue(value: any, columnKey: string): string {
     if (value === null || value === undefined) {
       return '';
+    }
+    
+    // Special handling for sign column
+    if (columnKey === 'sign') {
+      if (value === 1) return '+';
+      if (value === -1) return '-';
+      if (value === 0) return '0';
+      return value.toString();
     }
     
     // Special formatting for different column types
@@ -560,6 +1009,10 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
           return numValue.toFixed(6); // 6 decimals for p-values in standard notation
         } else if (columnKey.includes('correlation')) {
           return numValue.toFixed(3); // 3 decimals for correlations
+        } else if (columnKey === 'Coefficient' || columnKey === 'coefficient') {
+          return numValue.toFixed(4); // 4 decimals for coefficients
+        } else if (columnKey === 'importance') {
+          return numValue.toFixed(2); // 2 decimals for importance
         } else {
           return numValue.toFixed(4); // 4 decimals for other numeric values
         }
@@ -628,12 +1081,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     // Create plots after view is initialized and results are loaded
     const results = this.results();
     if (results?.results) {
-      const testNames = this.getTestNames();
-      if (testNames.length > 0) {
-        this.selectedTab = testNames[0];
-        this.lastTab = this.selectedTab;
-        this.updateTableForCurrentTab();
-      }
+      this.initializeDefaultSelections();
       setTimeout(() => this.createPlots(), 0);
     }
     
@@ -648,6 +1096,30 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     }, 100);
   }
 
+  private initializeDefaultSelections() {
+    const bivariateTests = this.getBivariateTests();
+    const multivariateTests = this.getMultivariateTests();
+    
+    // Set default section based on available tests
+    if (bivariateTests.length > 0) {
+      this.selectedSection = 'bivariate';
+      this.selectedBivariateTab = bivariateTests[0];
+      this.selectedTab = this.selectedBivariateTab;
+    } else if (multivariateTests.length > 0) {
+      this.selectedSection = 'multivariate';
+      this.selectedMultivariateTab = multivariateTests[0];
+      this.selectedTab = this.selectedMultivariateTab;
+    } else {
+      this.selectedSection = 'summary';
+      this.selectedTab = null;
+    }
+    
+    if (this.selectedTab) {
+      this.lastTab = this.selectedTab;
+      this.updateTableForCurrentTab();
+    }
+  }
+
   ngAfterViewChecked() {
     // Se la tab è cambiata, aggiorna il plot solo se non è già stato fatto
     if (this.selectedTab && this.selectedTab !== this.lastTab) {
@@ -660,13 +1132,11 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
 
   // Aggiorna la tab selezionata quando arrivano nuovi risultati
   ngDoCheck() {
-    const testNames = this.getTestNames();
-    if (testNames.length > 0 && (!this.selectedTab || !testNames.includes(this.selectedTab))) {
-      this.selectedTab = testNames[0];
-      this.lastTab = this.selectedTab;
-      this.updateTableForCurrentTab();
+    const results = this.results();
+    if (results?.results && (!this.selectedTab || !this.selectedSection)) {
+      this.initializeDefaultSelections();
       
-      // Ensure table components are properly connected after tab change
+      // Ensure table components are properly connected after initialization
       setTimeout(() => {
         if (this.paginator) {
           this.tableDataSource.paginator = this.paginator;
@@ -773,6 +1243,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
 
         this.loading.set(false);
         this.results.set(result);
+        this.initializeDefaultSelections();
         this.navigationService.updateNavigationStatus();
         setTimeout(() => this.createPlots(), 100);
       },
@@ -784,34 +1255,46 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   private createPlots() {
-    // Crea manhattan plot solo per il tab attivo
     const results = this.results()?.results;
     if (!results || !this.selectedTab) return;
     
     const test = results[this.selectedTab];
     if (!test?.data || test.data.length === 0) return;
     
-    const plotContainer = document.getElementById('manhattan-plot-' + this.selectedTab);
+    // Handle regularization methods (Ridge, Lasso, Elastic Net) with feature importance plots
+    if (this.isRegularizationMethod(this.selectedTab)) {
+      this.createFeatureImportancePlot();
+      return;
+    }
+    
+    // Create main Manhattan plot
+    this.createManhattanPlot(this.selectedTab, test.data, 'manhattan-plot-' + this.selectedTab);
+    
+    // For linear regression tests, also create the influential-removed plot if data exists
+    if (this.isLinearRegressionTest(this.selectedTab) && this.hasInfluentialRemovedData(this.selectedTab)) {
+      const influentialRemovedData = this.getInfluentialRemovedData(this.selectedTab);
+      this.createManhattanPlot(this.selectedTab, influentialRemovedData, 'manhattan-plot-no-influential-' + this.selectedTab);
+    }
+  }
+
+  private createManhattanPlot(testKey: string, data: any[], containerId: string) {
+    const plotContainer = document.getElementById(containerId);
     if (!plotContainer) {
-      console.warn('Plot container not found for tab:', this.selectedTab);
+      console.warn('Plot container not found:', containerId);
       return;
     }
 
     try {
-      console.log('Raw test data:', test.data.slice(0, 5)); // Log first 5 rows for debugging
-      console.log('Total data points:', test.data.length);
+      console.log(`Creating Manhattan plot for ${testKey} with ${data.length} data points`);
       
-      if (!test.data || test.data.length === 0) {
+      if (!data || data.length === 0) {
         console.error('No data available for plotting');
         return;
       }
 
-      console.log('Total data points:', test.data.length);
-      console.log('First few rows before filtering:', test.data.slice(0, 3));
-      
       // Filter data to include only valid rows
       let invalidCount = 0;
-      const validData = test.data.filter((row: any) => {
+      const validData = data.filter((row: any) => {
         // Detect p-value column dynamically
         const pValueFields = ['pValue', 'pval', 'p_value'];
         const pValueField = pValueFields.find(field => row[field] !== undefined && row[field] !== null);
@@ -839,11 +1322,11 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       });
 
       console.log('Data validation summary:', {
-        totalPoints: test.data.length,
+        totalPoints: data.length,
         validPoints: validData.length,
         invalidPoints: invalidCount,
-        validationRate: `${((validData.length / test.data.length) * 100).toFixed(1)}%`,
-        availableColumns: Object.keys(test.data[0] || {})
+        validationRate: `${((validData.length / data.length) * 100).toFixed(1)}%`,
+        availableColumns: Object.keys(data[0] || {})
       });
 
       if (validData.length === 0) {
@@ -858,11 +1341,16 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       console.log('Using p-value column:', pValueColumn);
       console.log('Sample data point:', validData[0]);
 
+      const test = this.results()?.results?.[testKey];
+      const plotTitle = containerId.includes('no-influential') 
+        ? `Manhattan Plot (No Influentials) - ${test?.testName || testKey}`
+        : `Manhattan Plot - ${test?.testName || testKey}`;
+
       this.plotlyService.createManhattanPlot(
         plotContainer,
         validData,
         {
-          title: `Manhattan Plot - ${test.testName || this.selectedTab}`,
+          title: plotTitle,
           xaxis: 'Variables',
           yaxis: '-log10(p-value)',
           significanceLine: true,
@@ -879,6 +1367,106 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
           <div>
             <p>Errore nella creazione del manhattan plot.</p>
             <p>Verifica che i dati contengano valori validi per variable e p-value.</p>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  private createFeatureImportancePlot() {
+    const results = this.results()?.results;
+    if (!results || !this.selectedTab) return;
+    
+    const test = results[this.selectedTab];
+    if (!test?.data || test.data.length === 0) return;
+    
+    const plotContainer = document.getElementById('feature-plot-' + this.selectedTab);
+    if (!plotContainer) {
+      console.warn('Feature plot container not found for tab:', this.selectedTab);
+      return;
+    }
+
+    try {
+      // Filter and sort data for top 20 features by importance
+      const filteredData = test.data
+        .filter((row: any) => row.importance && Number(row.importance) > 0)
+        .sort((a: any, b: any) => Number(b.importance) - Number(a.importance))
+        .slice(0, 20);
+
+      if (filteredData.length === 0) {
+        plotContainer.innerHTML = `
+          <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #64748b; text-align: center;">
+            <div>
+              <p>Nessuna caratteristica con importanza > 0</p>
+              <p>Il modello potrebbe aver eliminato tutte le variabili</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Prepare data for horizontal bar plot
+      const variables = filteredData.map((row: any) => row.Variable || row.variable);
+      const importances = filteredData.map((row: any) => Number(row.importance));
+      const signs = filteredData.map((row: any) => Number(row.sign));
+      
+      // Create colors based on sign: positive = blue, negative = red, zero = gray
+      const colors = signs.map((sign: number) => {
+        if (sign > 0) return '#06b6d4'; // Blue for positive
+        if (sign < 0) return '#ef4444'; // Red for negative
+        return '#64748b'; // Gray for zero
+      });
+
+      const data = [{
+        type: 'bar',
+        orientation: 'h',
+        x: importances,
+        y: variables,
+        marker: {
+          color: colors
+        },
+        text: importances.map((imp: number) => imp.toFixed(1)),
+        textposition: 'outside',
+        hovertemplate: '<b>%{y}</b><br>Importanza: %{x:.2f}<extra></extra>'
+      }];
+
+      const layout = {
+        title: {
+          text: `Top 20 Features - ${test.testName || this.selectedTab}`,
+          font: { size: 14 }
+        },
+        xaxis: {
+          title: 'Importanza (%)',
+          showgrid: true,
+          gridcolor: '#e2e8f0'
+        },
+        yaxis: {
+          title: '',
+          showgrid: false,
+          automargin: true
+        },
+        margin: { l: 100, r: 40, t: 40, b: 40 },
+        plot_bgcolor: 'white',
+        paper_bgcolor: 'white',
+        font: { family: 'system-ui, sans-serif', size: 11 },
+        showlegend: false
+      };
+
+      const config = {
+        responsive: true,
+        displayModeBar: false
+      };
+
+      // Use Plotly to create the plot
+      (window as any).Plotly.newPlot(plotContainer, data, layout, config);
+
+    } catch (error) {
+      console.error('Error creating feature importance plot:', error);
+      plotContainer.innerHTML = `
+        <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444; text-align: center;">
+          <div>
+            <p>Errore nella creazione del grafico delle caratteristiche.</p>
+            <p>Verifica che i dati contengano valori validi per importanza.</p>
           </div>
         </div>
       `;
@@ -1026,5 +1614,177 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   getTestDisplayName(testKey: string): string {
     const test = this.results()?.results?.[testKey];
     return test?.testName || testKey;
+  }
+
+  // Methods for regularization methods (Ridge, Lasso, Elastic Net)
+  isRegularizationMethod(testKey: string): boolean {
+    return ['ridge', 'lasso', 'elasticNet'].includes(testKey);
+  }
+
+  getChosenLambda(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    if (test?.chosen_lambda !== undefined) {
+      return Number(test.chosen_lambda).toFixed(4);
+    }
+    return 'N/A';
+  }
+
+  getChosenAlpha(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    if (test?.chosen_alpha !== undefined) {
+      return Number(test.chosen_alpha).toFixed(4);
+    }
+    return 'N/A';
+  }
+
+  getBestMetric(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    if (test?.best_metric !== undefined) {
+      return Number(test.best_metric).toFixed(4);
+    }
+    return 'N/A';
+  }
+
+  // Methods for categorizing tests by type
+  getBivariateTests(): string[] {
+    const testNames = this.getTestNames();
+    console.log('All available test names:', testNames); // Debug log to see what tests are returned
+    
+    // Bivariate tests from the first sections: Statistical Tests, Correlation Tests, Linear Regressions
+    const bivariateKeywords = [
+      // Statistical Tests - including both underscore and hyphen formats
+      'student-t', 'student_t', 'welch-t', 'welch_t', 'anova', 'welch-anova', 'welch_anova', 
+      'wilcoxon', 'kruskal-wallis', 'kruskal_wallis', 'kw',
+      // Correlation Tests  
+      'pearson', 'spearman',
+      // Linear Regressions
+      'linearregression', 'linear-regression', 'linear_regression', 'lm', 'regression', 'lr'
+    ];
+    
+    const filteredTests = testNames.filter(test => 
+      bivariateKeywords.some(keyword => test.toLowerCase().includes(keyword)) ||
+      test.toLowerCase().includes('ttest') ||
+      test.toLowerCase().includes('correlation')
+    );
+    
+    console.log('Filtered bivariate tests:', filteredTests); // Debug log to see what gets filtered
+    return filteredTests;
+  }
+
+  // Linear Regression specific methods
+  isLinearRegressionTest(testKey: string): boolean {
+    const linearRegressionKeywords = ['linearregression', 'linear-regression', 'linear_regression', 'lm', 'regression', 'lr'];
+    return linearRegressionKeywords.some(keyword => testKey.toLowerCase().includes(keyword));
+  }
+
+  getLinearRegressionFormula(testKey: string): string | null {
+    const test = this.results()?.results?.[testKey];
+    if (test?.formula) {
+      return test.formula;
+    }
+    // If no formula is provided by the API, we can construct a generic one
+    if (this.isLinearRegressionTest(testKey)) {
+      return 'outcome ~ covariates + omic_variables';
+    }
+    return null;
+  }
+
+  hasInfluentialRemovedData(testKey: string): boolean {
+    const test = this.results()?.results?.[testKey];
+    return !!(test?.data_removed_influentials && test.data_removed_influentials.length > 0);
+  }
+
+  getInfluentialRemovedData(testKey: string): any[] {
+    const test = this.results()?.results?.[testKey];
+    return test?.data_removed_influentials || [];
+  }
+
+  updateInfluentialRemovedTable(testKey: string) {
+    if (!this.hasInfluentialRemovedData(testKey)) return;
+    
+    const data = this.getInfluentialRemovedData(testKey);
+    this.influentialRemovedDataSource.data = data;
+    
+    // Get columns for influential removed data
+    if (data.length > 0) {
+      const sampleSize = Math.min(5, data.length);
+      const allKeys = new Set<string>();
+      
+      for (let i = 0; i < sampleSize; i++) {
+        Object.keys(data[i] || {}).forEach(key => allKeys.add(key));
+      }
+      
+      this.influentialRemovedColumns = Array.from(allKeys);
+    }
+  }
+
+  getMultivariateTests(): string[] {
+    const testNames = this.getTestNames();
+    // Multivariate tests from the Multivariate Analysis/Feature Selection section
+    const multivariateKeywords = [
+      'ridge', 'lasso', 'elastic', 'elasticnet', 'elastic-net',
+      'randomforest', 'random-forest', 'random_forest',
+      'boruta', 'rfe', 'recursive-feature', 'feature-elimination'
+    ];
+    
+    return testNames.filter(test => 
+      multivariateKeywords.some(keyword => test.toLowerCase().includes(keyword))
+    );
+  }
+
+  // Section management methods
+  selectSection(section: 'bivariate' | 'multivariate' | 'summary') {
+    if (this.selectedSection === section) return;
+    
+    // Clean up previous plots
+    this.cleanupPlots();
+    
+    this.selectedSection = section;
+    
+    // Reset tab selections when switching sections
+    if (section === 'bivariate') {
+      const bivariateTests = this.getBivariateTests();
+      this.selectedBivariateTab = bivariateTests.length > 0 ? bivariateTests[0] : null;
+      this.selectedTab = this.selectedBivariateTab;
+    } else if (section === 'multivariate') {
+      const multivariateTests = this.getMultivariateTests();
+      this.selectedMultivariateTab = multivariateTests.length > 0 ? multivariateTests[0] : null;
+      this.selectedTab = this.selectedMultivariateTab;
+    } else {
+      this.selectedTab = null;
+    }
+    
+    if (this.selectedTab) {
+      this.updateTableForCurrentTab();
+      this.cdr.detectChanges();
+      setTimeout(() => this.createPlots(), 100);
+    }
+  }
+
+  selectBivariateTab(tabName: string) {
+    this.selectedBivariateTab = tabName;
+    this.selectTab(tabName);
+  }
+
+  selectMultivariateTab(tabName: string) {
+    this.selectedMultivariateTab = tabName;
+    this.selectTab(tabName);
+  }
+
+  private cleanupPlots() {
+    // Clean up all existing plots when switching sections
+    const allTestNames = this.getTestNames();
+    allTestNames.forEach(testName => {
+      const plotContainer = document.getElementById('manhattan-plot-' + testName);
+      if (plotContainer) {
+        this.plotlyService.purge(plotContainer);
+      }
+      
+      // Also clean up influential-removed plots for linear regression
+      const influentialPlotContainer = document.getElementById('manhattan-plot-no-influential-' + testName);
+      if (influentialPlotContainer) {
+        this.plotlyService.purge(influentialPlotContainer);
+      }
+    });
   }
 }

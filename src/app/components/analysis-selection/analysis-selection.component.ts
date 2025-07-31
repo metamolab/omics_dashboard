@@ -810,11 +810,32 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                     <label class="radio-option-inline">
                       <input type="radio" 
                              name="randomForestMtrySelection" 
+                             value="tuning"
+                             [(ngModel)]="options.multivariateAnalysis.randomForest.mtrySelection">
+                      <span class="radio-custom-small"></span>
+                      <span>Tuning</span>
+                    </label>
+
+                    <label class="radio-option-inline">
+                      <input type="radio" 
+                             name="randomForestMtrySelection" 
                              value="manual"
                              [(ngModel)]="options.multivariateAnalysis.randomForest.mtrySelection">
                       <span class="radio-custom-small"></span>
                       <span>Personalizzato</span>
                     </label>
+                  </div>
+                  
+                  <div class="option-help">
+                    @if (options.multivariateAnalysis.randomForest.mtrySelection === 'automatic') {
+                      <small class="input-help">Usa il valore predefinito p/3 (1/3 numero di predittori)</small>
+                    }
+                    @if (options.multivariateAnalysis.randomForest.mtrySelection === 'tuning') {
+                      <small class="input-help">Il valore ottimale di mtry sarà determinato automaticamente tramite cross-validation</small>
+                    }
+                    @if (options.multivariateAnalysis.randomForest.mtrySelection === 'manual') {
+                      <small class="input-help">Specifica manualmente il numero di variabili da considerare ad ogni split</small>
+                    }
                   </div>
 
                   @if (options.multivariateAnalysis.randomForest.mtrySelection === 'manual') {
@@ -915,6 +936,15 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                       <span class="radio-custom-small"></span>
                       <span>Personalizzato</span>
                     </label>
+                  </div>
+                  
+                  <div class="option-help">
+                    @if (options.multivariateAnalysis.boruta.mtrySelection === 'automatic') {
+                      <small class="input-help">Usa il valore predefinito p/3 (1/3 numero di predittori)</small>
+                    }
+                    @if (options.multivariateAnalysis.boruta.mtrySelection === 'manual') {
+                      <small class="input-help">Specifica manualmente il numero di variabili da considerare ad ogni split</small>
+                    }
                   </div>
 
                   @if (options.multivariateAnalysis.boruta.mtrySelection === 'manual') {
@@ -2002,14 +2032,14 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         enabled: false,
         ntree: 500,
         mtrySelection: 'automatic',
-        mtryValue: undefined,
+        mtryValue: 1,
         includeCovariates: true
       },
       boruta: {
         enabled: false,
         ntree: 500,
         mtrySelection: 'automatic',
-        mtryValue: undefined,
+        mtryValue: 1,
         maxRuns: 100,
         roughFixTentativeFeatures: false,
         includeCovariates: true
