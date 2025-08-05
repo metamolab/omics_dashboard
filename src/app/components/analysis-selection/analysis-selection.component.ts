@@ -159,7 +159,7 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
           }
 
           <!-- Outcome Distribution Histogram -->
-          @if (outcomeValues.length > 0) {
+          @if (outcomeValues.length > 0 && options.groupingMethod !== 'none') {
             <div class="outcome-histogram">
               <h3>Distribuzione Outcome</h3>
               <div #outcomeHistogram class="histogram-plot"></div>
@@ -2370,11 +2370,14 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
   }
 
   onGroupingMethodChange() {
-    // Recreate histogram when grouping method changes
+    // Clear existing plot first if it exists
+    if (this.outcomeHistogram?.nativeElement) {
+      this.plotlyService.purge(this.outcomeHistogram.nativeElement);
+    }
+    
+    // Recreate histogram when grouping method changes (but not for 'none')
     if (this.outcomeValues.length > 0 && this.options.groupingMethod !== 'none') {
       setTimeout(() => this.createOutcomeHistogram(), 100);
-    } else {
-
     }
   }
 

@@ -1387,18 +1387,39 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     }
 
     try {
-      // Filter and sort data for top 20 features by importance
+      console.log('Creating feature importance plot for:', this.selectedTab);
+      console.log('Raw data length:', test.data.length);
+      console.log('Sample data:', test.data.slice(0, 3));
+
+      // Filter data - be more lenient with filtering
       const filteredData = test.data
-        .filter((row: any) => row.importance && Number(row.importance) > 0)
-        .sort((a: any, b: any) => Number(b.importance) - Number(a.importance))
+        .filter((row: any) => {
+          const importance = Number(row.importance);
+          const hasVariable = row.Variable || row.variable;
+          const isValid = hasVariable && !isNaN(importance) && importance !== null && importance !== undefined;
+          
+          if (!isValid) {
+            console.log('Filtered out row:', row);
+          }
+          
+          return isValid;
+        })
+        .sort((a: any, b: any) => {
+          const aImp = Number(a.importance);
+          const bImp = Number(b.importance);
+          return bImp - aImp;
+        })
         .slice(0, 20);
+
+      console.log('Filtered data length:', filteredData.length);
+      console.log('Filtered data sample:', filteredData.slice(0, 5));
 
       if (filteredData.length === 0) {
         plotContainer.innerHTML = `
           <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #64748b; text-align: center;">
             <div>
-              <p>Nessuna caratteristica con importanza > 0</p>
-              <p>Il modello potrebbe aver eliminato tutte le variabili</p>
+              <p>Nessuna caratteristica trovata</p>
+              <p>Verificare che i dati contengano le colonne 'importance' e 'Variable'/'variable'</p>
             </div>
           </div>
         `;
@@ -1406,9 +1427,16 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       }
 
       // Prepare data for horizontal bar plot
-      const variables = filteredData.map((row: any) => row.Variable || row.variable);
+      const variables = filteredData.map((row: any) => row.Variable || row.variable || `Feature_${Math.random()}`);
       const importances = filteredData.map((row: any) => Number(row.importance));
-      const signs = filteredData.map((row: any) => Number(row.sign));
+      const signs = filteredData.map((row: any) => {
+        const sign = Number(row.sign);
+        return isNaN(sign) ? 0 : sign;
+      });
+      
+      console.log('Variables:', variables.length, variables.slice(0, 5));
+      console.log('Importances:', importances.length, importances.slice(0, 5));
+      console.log('Signs:', signs.length, signs.slice(0, 5));
       
       // Create colors based on sign: positive = blue, negative = red, zero = gray
       const colors = signs.map((sign: number) => {
@@ -1417,7 +1445,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
         return '#64748b'; // Gray for zero
       });
 
-      const data = [{
+      const plotData = [{
         type: 'bar',
         orientation: 'h',
         x: importances,
@@ -1432,7 +1460,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
 
       const layout = {
         title: {
-          text: `Top 20 Features - ${test.testName || this.selectedTab}`,
+          text: `Top ${filteredData.length} Features - ${test.testName || this.selectedTab}`,
           font: { size: 14 }
         },
         xaxis: {
@@ -1443,13 +1471,15 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
         yaxis: {
           title: '',
           showgrid: false,
-          automargin: true
+          automargin: true,
+          type: 'category'
         },
-        margin: { l: 100, r: 40, t: 40, b: 40 },
+        margin: { l: 150, r: 40, t: 60, b: 40 },
         plot_bgcolor: 'white',
         paper_bgcolor: 'white',
         font: { family: 'system-ui, sans-serif', size: 11 },
-        showlegend: false
+        showlegend: false,
+        height: Math.max(400, filteredData.length * 25 + 100)
       };
 
       const config = {
@@ -1457,8 +1487,11 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
         displayModeBar: false
       };
 
+      console.log('Creating plot with data:', plotData);
+      console.log('Layout:', layout);
+
       // Use Plotly to create the plot
-      (window as any).Plotly.newPlot(plotContainer, data, layout, config);
+      (window as any).Plotly.newPlot(plotContainer, plotData, layout, config);
 
     } catch (error) {
       console.error('Error creating feature importance plot:', error);
@@ -1466,7 +1499,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
         <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444; text-align: center;">
           <div>
             <p>Errore nella creazione del grafico delle caratteristiche.</p>
-            <p>Verifica che i dati contengano valori validi per importanza.</p>
+            <p>Errore: ${error}</p>
           </div>
         </div>
       `;

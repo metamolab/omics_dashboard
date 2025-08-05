@@ -905,41 +905,68 @@ export class PreprocessingComponent implements OnInit {
     this.columnErrors.covariates = this.validateColumns(this.columnInputs.covariates, preview.headers, false);
     this.columnErrors.omics = this.validateColumns(this.columnInputs.omics, preview.headers, true);
 
-    // Check for overlaps
-    const allColumns = new Set<string | number>();
-    const checkOverlap = (cols: (string | number)[], name: string) => {
-      for (const col of cols) {
-        if (allColumns.has(col)) {
-          return `${name} contiene colonne già selezionate`;
-        }
-        allColumns.add(col);
-      }
-      return '';
-    };
-
-    // Update column classification
+    // Parse all columns to their normalized forms (names)
     const idCol = this.parseSingleColumn(this.columnInputs.id, preview.headers);
     const outcomeCol = this.parseSingleColumn(this.columnInputs.outcome, preview.headers);
     const covariateCols = this.parseColumnInput(this.columnInputs.covariates, preview.headers);
     const omicsCols = this.parseColumnInput(this.columnInputs.omics, preview.headers);
 
-    // Check overlaps
-    if (idCol !== null) {
-      const overlap = checkOverlap([idCol], 'ID');
-      if (overlap) this.columnErrors.id = overlap;
+    // Normalize all columns to names for comparison
+    const normalizeColumn = (col: string | number): string => {
+      if (typeof col === 'number') {
+        return preview.headers[col] || '';
+      }
+      return col;
+    };
+
+    // Convert all parsed columns to names
+    const normalizedColumns = {
+      id: idCol !== null ? normalizeColumn(idCol) : null,
+      outcome: outcomeCol !== null ? normalizeColumn(outcomeCol) : null,
+      covariates: covariateCols.map(normalizeColumn).filter(name => name !== ''),
+      omics: omicsCols.map(normalizeColumn).filter(name => name !== '')
+    };
+
+    // Check for overlaps between all categories
+    const allUsedColumns = new Set<string>();
+    const overlaps: { [key: string]: string } = {};
+
+    // Helper function to check and add columns
+    const checkAndAddColumns = (columns: string[], categoryName: string, errorKey: string) => {
+      for (const col of columns) {
+        if (allUsedColumns.has(col)) {
+          overlaps[errorKey] = `La colonna "${col}" è già utilizzata in un'altra categoria`;
+        } else {
+          allUsedColumns.add(col);
+        }
+      }
+    };
+
+    // Check ID column first
+    if (normalizedColumns.id) {
+      allUsedColumns.add(normalizedColumns.id);
     }
-    if (outcomeCol !== null) {
-      const overlap = checkOverlap([outcomeCol], 'Outcome');
-      if (overlap) this.columnErrors.outcome = overlap;
+
+    // Check outcome column
+    if (normalizedColumns.outcome) {
+      if (allUsedColumns.has(normalizedColumns.outcome)) {
+        overlaps['outcome'] = `La colonna "${normalizedColumns.outcome}" è già utilizzata come ID`;
+      } else {
+        allUsedColumns.add(normalizedColumns.outcome);
+      }
     }
-    if (!this.columnErrors.covariates) {
-      const overlap = checkOverlap(covariateCols, 'Covariate');
-      if (overlap) this.columnErrors.covariates = overlap;
-    }
-    if (!this.columnErrors.omics) {
-      const overlap = checkOverlap(omicsCols, 'Dati omici');
-      if (overlap) this.columnErrors.omics = overlap;
-    }
+
+    // Check covariate columns
+    checkAndAddColumns(normalizedColumns.covariates, 'Covariate', 'covariates');
+
+    // Check omics columns
+    checkAndAddColumns(normalizedColumns.omics, 'Omics', 'omics');
+
+    // Apply overlap errors (only if no other validation errors exist)
+    if (!this.columnErrors.id && overlaps['id']) this.columnErrors.id = overlaps['id'];
+    if (!this.columnErrors.outcome && overlaps['outcome']) this.columnErrors.outcome = overlaps['outcome'];
+    if (!this.columnErrors.covariates && overlaps['covariates']) this.columnErrors.covariates = overlaps['covariates'];
+    if (!this.columnErrors.omics && overlaps['omics']) this.columnErrors.omics = overlaps['omics'];
 
     // Update options - always store column names instead of indices
     const headers = this.filePreview()?.headers || [];
