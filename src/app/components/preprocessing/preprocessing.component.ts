@@ -407,7 +407,7 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
       font-weight: 600;
     }
     .page-header p {
-      margin: 0;
+      margin: 10px auto;
       color: #475569;
       font-size: 16px;
     }
@@ -864,8 +864,16 @@ export class PreprocessingComponent implements OnInit {
 
     // Load file preview
     try {
-      const preview = await this.fileParserService.parseFile(fileData.file);
-      this.filePreview.set(preview);
+      let preview;
+      if (fileData.file) {
+        preview = await this.fileParserService.parseFile(fileData.file);
+        this.filePreview.set(preview);
+      } else if (fileData.isRemote && fileData.remotePath) {
+        // Handle remote file - would need API call to get preview
+        console.log('Remote file preview not yet implemented');
+        // Use existing preview if available
+        preview = fileData.preview;
+      }
       
       // Update file data with preview
       this.dataFlowService.setFileData({
@@ -1373,7 +1381,7 @@ export class PreprocessingComponent implements OnInit {
       };
       
       const processedBlob = await this.apiService.preprocessFile(
-        fileData.file,
+        fileData.file!,
         preprocessingOptions
       ).toPromise();
 

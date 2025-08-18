@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Structure Test</title>
+</head>
+<body>
+    <h1>API Structure Test</h1>
+    <button onclick="testAPI()">Test API Call</button>
+    <div id="output"></div>
+
+    <script>
+        async function testAPI() {
+            try {
+                const response = await fetch('http://localhost:8000/results/MasterTest_e43cf352-5dde-4488-833b-9d7747cd3b7b');
+                const data = await response.json();
+                
+                console.log('Full API Response:', data);
+                console.log('Response keys:', Object.keys(data));
+                console.log('data.results type:', typeof data.results);
+                console.log('data.results keys:', data.results ? Object.keys(data.results) : 'null');
+                
+                // Check for nested structure
+                if (data.results && data.results.results) {
+                    console.log('Nested results detected!');
+                    console.log('Inner results keys:', Object.keys(data.results.results));
+                    console.log('First test:', Object.keys(data.results.results)[0]);
+                }
+                
+                document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(data, null, 2).substring(0, 2000) + '...</pre>';
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('output').innerHTML = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

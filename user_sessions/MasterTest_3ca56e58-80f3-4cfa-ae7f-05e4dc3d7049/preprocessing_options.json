@@ -1,0 +1,70 @@
+{
+  "columnClassification": {
+    "idColumn": "ID",
+    "outcomeColumn": "gsslope",
+    "covariateColumns": [
+      "age",
+      "sex",
+      "bmi"
+    ],
+    "omicsColumns": [
+      "MFGE8",
+      "ACAN",
+      "ITGB1",
+      "DKK3",
+      "SPINT2",
+      "APP",
+      "HAVCR2",
+      "DSC2",
+      "TMSB10",
+      "ANGPTL4",
+      "INHBC",
+      "SPINK1",
+      "CLEC11A",
+      "PDGFRB",
+      "COCH",
+      "FCRL5",
+      "PILRA",
+      "B4GALT1",
+      "CD300LG",
+      "PARK7",
+      "CCL21",
+      "PTPRF",
+      "BCAM",
+      "SIRPB1",
+      "IGF2R",
+      "P4HB",
+      "FUCA1",
+      "ESAM",
+      "CST6",
+      "MYOC",
+      "SNAP29",
+      "WFIKKN2",
+      "CDON",
+      "CD177",
+      "DAG1",
+      "ADGRE5",
+      "CD109",
+      "VSIG4",
+      "CGA",
+      "CLEC14A",
+      "CA6"
+    ],
+    "categoricalColumns": [
+      "sex"
+    ],
+    "outcomeType": "continuous"
+  },
+  "removeNullValues": false,
+  "fillMissingValues": "mean",
+  "transformation": "standardize",
+  "removeOutliers": true,
+  "outlierMethod": "iqr",
+  "missingDataRemoval": {
+    "enabled": true,
+    "threshold": 75,
+    "columnsToRemove": []
+  },
+  "sessionId": "3ca56e58-80f3-4cfa-ae7f-05e4dc3d7049",
+  "userId": "MasterTest"
+}

@@ -8,12 +8,13 @@ export class DataFlowService {
   fileData = signal<FileData | null>(null);
   preprocessingOptions = signal<PreprocessingOptions | null>(null);
   analysisOptions = signal<AnalysisOptions | null>(null);
+  analysisId = signal<string | null>(null);
 
-  setFileData(data: FileData) {
+  setFileData(data: FileData | null) {
     this.fileData.set(data);
   }
 
-  setPreprocessingOptions(options: PreprocessingOptions) {
+  setPreprocessingOptions(options: PreprocessingOptions | any) {
     this.preprocessingOptions.set(options);
   }
 
@@ -21,10 +22,15 @@ export class DataFlowService {
     this.analysisOptions.set(options);
   }
 
+  setAnalysisId(id: string | null) {
+    this.analysisId.set(id);
+  }
+
   resetData() {
     this.fileData.set(null);
     this.preprocessingOptions.set(null);
     this.analysisOptions.set(null);
+    this.analysisId.set(null);
   }
 
   isStepCompleted(step: string): boolean {

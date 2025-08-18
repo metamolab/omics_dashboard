@@ -29,7 +29,18 @@ export class ApiService {
     // Transform the analysis options to ensure customSubsetSizes is properly formatted for the API
     const transformedAnalysisOptions = this.transformAnalysisOptionsForAPI(request.analysisOptions);
     
-    formData.append('file', request.file, request.file.name);
+    // Handle file - either direct file or remote file reference
+    if (request.file) {
+      // Direct file upload
+      formData.append('file', request.file, request.file.name);
+    } else if (request.fileData.isRemote && request.fileData.remotePath) {
+      // Remote file reference
+      formData.append('remotePath', request.fileData.remotePath);
+      formData.append('fileName', request.fileData.fileName);
+    } else {
+      throw new Error('No file or remote path provided');
+    }
+    
     formData.append('sessionId', request.sessionId);
     formData.append('userId', request.userId);
     formData.append('preprocessingOptions', JSON.stringify(request.preprocessingOptions));
@@ -67,8 +78,8 @@ export class ApiService {
     return transformed;
   }
 
-  getAnalysisStatus(analysisId: string): Observable<string> {
-    return this.http.get(`${this.baseUrl}/status/${analysisId}`, { responseType: 'text' });
+  getAnalysisStatus(analysisId: string): Observable<AnalysisResult> {
+    return this.http.get<AnalysisResult>(`${this.baseUrl}/status/${analysisId}`);
   }
 
   getAnalysisResults(analysisId: string): Observable<AnalysisResult> {

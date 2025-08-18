@@ -804,7 +804,7 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                              value="automatic"
                              [(ngModel)]="options.multivariateAnalysis.randomForest.mtrySelection">
                       <span class="radio-custom-small"></span>
-                      <span>Automatico (√p)</span>
+                      <span>Automatico</span>
                     </label>
 
                     <label class="radio-option-inline">
@@ -925,7 +925,7 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                              value="automatic"
                              [(ngModel)]="options.multivariateAnalysis.boruta.mtrySelection">
                       <span class="radio-custom-small"></span>
-                      <span>Automatico (√p)</span>
+                      <span>Automatico</span>
                     </label>
 
                     <label class="radio-option-inline">
@@ -940,7 +940,7 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
                   
                   <div class="option-help">
                     @if (options.multivariateAnalysis.boruta.mtrySelection === 'automatic') {
-                      <small class="input-help">Usa il valore predefinito p/3 (1/3 numero di predittori)</small>
+                      <small class="input-help">Usa il valore predefinito p/3 o √p (1/3 numero di predittori o √p per classificazione)</small>
                     }
                     @if (options.multivariateAnalysis.boruta.mtrySelection === 'manual') {
                       <small class="input-help">Specifica manualmente il numero di variabili da considerare ad ogni split</small>
@@ -1139,7 +1139,7 @@ import { AnalysisOptions, FilePreview } from '../../models/interfaces';
     }
 
     .page-header {
-      margin-bottom: 32px;
+      margin-bottom: 16px;
     }
 
     .page-header h1 {
@@ -2010,7 +2010,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         lambdaRange: { min: 0.001, max: 1, step: 0.001 },
         metric: 'rmse',
         lambdaRule: 'min',
-        includeCovariates: true
+        includeCovariates: false
       },
       lasso: {
         enabled: false,
@@ -2018,7 +2018,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         lambdaRange: { min: 0.001, max: 1, step: 0.001 },
         metric: 'rmse',
         lambdaRule: 'min',
-        includeCovariates: true
+        includeCovariates: false
       },
       elasticNet: {
         enabled: false,
@@ -2026,14 +2026,14 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         lambdaRange: { min: 0.001, max: 1, step: 0.001 },
         metric: 'rmse',
         lambdaRule: 'min',
-        includeCovariates: true
+        includeCovariates: false
       },
       randomForest: {
         enabled: false,
         ntree: 500,
         mtrySelection: 'automatic',
         mtryValue: 1,
-        includeCovariates: true
+        includeCovariates: false
       },
       boruta: {
         enabled: false,
@@ -2042,14 +2042,14 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         mtryValue: 1,
         maxRuns: 100,
         roughFixTentativeFeatures: false,
-        includeCovariates: true
+        includeCovariates: false
       },
       rfe: {
         enabled: false,
         metric: 'rmse',
         subsetSizeType: 'automatic',
         customSubsetSizes: '',
-        includeCovariates: true
+        includeCovariates: false
       }
     }
   };

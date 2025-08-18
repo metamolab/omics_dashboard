@@ -1,5 +1,5 @@
 export interface FileData {
-  file: File;
+  file: File | null;  // null for remote files
   fileName: string;
   fileSize: number;
   uploadDate: Date;
@@ -7,6 +7,9 @@ export interface FileData {
   processedFile?: File;
   sessionId?: string;
   userId?: string;
+  // Remote file properties
+  remotePath?: string;
+  isRemote?: boolean;
 }
 
 export interface FilePreview {
@@ -107,7 +110,8 @@ export interface AnalysisOptions {
 export interface AnalysisRequest {
   sessionId: string;
   userId: string;
-  file: File;
+  file?: File;  // Optional for remote files
+  fileData: FileData;  // Always include file metadata
   preprocessingOptions: PreprocessingOptions;
   analysisOptions: AnalysisOptions;
 }
