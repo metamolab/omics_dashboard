@@ -111,7 +111,7 @@ def save_session_options(session_dir: str, preprocessing_options: dict, analysis
         logger.error(f"Failed to save session options: {e}")
         raise Exception(f"Failed to save session options: {e}")
 
-async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 300) -> Dict[str, Any]:
+async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 1800) -> Dict[str, Any]:
     """Run R script with given arguments and return parsed JSON result"""
     temp_file_path = None
     try:
@@ -306,7 +306,7 @@ async def preprocess_file(
         }
         
         #Lancio R script per preprocessing
-        result = await run_r_script("preprocess.R", r_args)
+        result = await run_r_script("preprocess.R", r_args, timeout=900)  # 15 minutes timeout for preprocessing
         
         #Controllo di successo
         if not result.get("success", False):
@@ -473,7 +473,7 @@ async def perform_analysis(
         
         # Lancia script R per l'analisi
         logger.info(f"Starting R script execution for analysis {analysis_id}")
-        result = await run_r_script("analysis.R", r_args, timeout=600)  # 10 minutes timeout
+        result = await run_r_script("analysis.R", r_args, timeout=3600)  # 1 hour timeout (increased from 10 minutes)
         logger.info(f"R script completed for analysis {analysis_id}")
         
         # salva risultati dell'analisi
@@ -744,6 +744,112 @@ def test_connectivity():
         "timestamp": datetime.now()
     }
 
+# Get previous analyses from user sessions
+@app.get("/analyses")
+def get_previous_analyses():
+    """Get list of previous analyses from user sessions folder"""
+    try:
+        user_sessions_dir = "user_sessions"
+        analyses = []
+        
+        if not os.path.exists(user_sessions_dir):
+            return analyses
+        
+        # Scan through user session directories
+        for session_folder in os.listdir(user_sessions_dir):
+            session_path = os.path.join(user_sessions_dir, session_folder)
+            if os.path.isdir(session_path):
+                # Check if this session has analysis data
+                original_file_path = None
+                processed_file_path = None
+                preprocessing_options_path = None
+                results_file_path = None
+                
+                # Look for key files in the session
+                for file in os.listdir(session_path):
+                    if file.startswith("original_"):
+                        original_file_path = os.path.join(session_path, file)
+                    elif file == "processed_data.csv":
+                        processed_file_path = os.path.join(session_path, file)
+                    elif file == "preprocessing_options.json":
+                        preprocessing_options_path = os.path.join(session_path, file)
+                    elif file in ["analysis_results.json", "complete_results.json", "results.json"]:
+                        results_file_path = os.path.join(session_path, file)
+                        # Also check for any analysis-processed CSV files which indicate completion
+                    elif file.startswith("analysis_processed_") and file.endswith(".csv"):
+                        # This indicates the analysis was completed and processed
+                        if not results_file_path:  # Only set if we don't have a JSON results file
+                            results_file_path = os.path.join(session_path, file)
+                
+                if original_file_path:  # Only include sessions with data
+                    # Extract dataset name from original file
+                    dataset_name = os.path.basename(original_file_path).replace("original_", "")
+                    
+                    # Determine analysis status
+                    status = "pending"
+                    analysis_type = "Unknown"
+                    description = None
+                    completed_date = None
+                    
+                    if results_file_path and os.path.exists(results_file_path):
+                        status = "completed"
+                        # Try to read analysis type from results
+                        try:
+                            if results_file_path.endswith('.json'):
+                                with open(results_file_path, 'r') as f:
+                                    results_data = json.load(f)
+                                    # Check if this looks like a complete analysis results file
+                                    if 'results' in results_data or 'student-t' in results_data or 'analysis_type' in results_data:
+                                        analysis_type = results_data.get("analysis_type", "Multivariate Analysis")
+                                        description = results_data.get("description", "Completed analysis")
+                                    else:
+                                        # File exists but might not be complete
+                                        status = "running"
+                            else:
+                                # CSV file indicates completion
+                                analysis_type = "Data Analysis"
+                                description = "Analysis completed with processed output"
+                            completed_date = datetime.fromtimestamp(os.path.getmtime(results_file_path))
+                        except Exception as e:
+                            logger.warning(f"Error reading results file {results_file_path}: {e}")
+                            # If we can't read the results file, it might be corrupted or incomplete
+                            status = "running"
+                    elif processed_file_path and os.path.exists(processed_file_path):
+                        # Has processed data but no results yet
+                        status = "running" 
+                        analysis_type = "Data Processing"
+                        description = "Analysis in progress"
+                    else:
+                        # Only has original file
+                        status = "pending"
+                        analysis_type = "Data Upload"
+                        description = "Ready for processing"
+                    
+                    # Get creation date from original file
+                    created_date = datetime.fromtimestamp(os.path.getctime(original_file_path))
+                    
+                    analysis = {
+                        "analysisId": session_folder.split('_')[-1] if '_' in session_folder else session_folder,
+                        "name": f"Analysis {session_folder}",
+                        "datasetName": dataset_name,
+                        "analysisType": analysis_type,
+                        "status": status,
+                        "createdDate": created_date.isoformat(),
+                        "completedDate": completed_date.isoformat() if completed_date else None,
+                        "description": description
+                    }
+                    
+                    analyses.append(analysis)
+        
+        # Sort by creation date, newest first
+        analyses.sort(key=lambda x: x["createdDate"], reverse=True)
+        
+        return analyses
+        
+    except Exception as e:
+        logger.error(f"Error getting previous analyses: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving previous analyses: {str(e)}")
+
 # Debug endpoint per vedere tutte le analisi
 @app.get("/debug/analyses")
 def debug_all_analyses():
@@ -761,6 +867,268 @@ def debug_all_analyses():
             } for aid, data in analysis_storage.items()
         }
     }
+
+# Get preprocessing options from user sessions
+@app.get("/preprocessing-options")
+def get_preprocessing_options():
+    """Get available preprocessing options from all user sessions"""
+    try:
+        user_sessions_dir = "user_sessions"
+        preprocessing_options = []
+        
+        if not os.path.exists(user_sessions_dir):
+            return preprocessing_options
+        
+        # Scan through user session directories
+        for session_folder in os.listdir(user_sessions_dir):
+            session_path = os.path.join(user_sessions_dir, session_folder)
+            if os.path.isdir(session_path):
+                preprocessing_file = os.path.join(session_path, "preprocessing_options.json")
+                
+                if os.path.exists(preprocessing_file):
+                    try:
+                        with open(preprocessing_file, 'r', encoding='utf-8') as f:
+                            options_data = json.load(f)
+                        
+                        # Extract session info from folder name
+                        session_parts = session_folder.split('_')
+                        user_id = session_parts[0] if session_parts else 'Unknown'
+                        session_id = '_'.join(session_parts[1:]) if len(session_parts) > 1 else session_folder
+                        
+                        # Get creation date from file stats
+                        file_stats = os.stat(preprocessing_file)
+                        created_date = datetime.fromtimestamp(file_stats.st_ctime)
+                        
+                        # Extract original file name if available
+                        original_file_name = "Unknown dataset"
+                        for file in os.listdir(session_path):
+                            if file.startswith("original_"):
+                                original_file_name = file.replace("original_", "")
+                                break
+                        
+                        # Generate a descriptive name based on the configuration
+                        preprocessing_name = generate_preprocessing_name(options_data, original_file_name)
+                        
+                        preprocessing_option = {
+                            "sessionId": session_folder,  # Use full folder name as ID
+                            "userId": user_id,
+                            "name": preprocessing_name,
+                            "description": generate_preprocessing_description(options_data),
+                            "options": options_data,
+                            "createdDate": created_date.isoformat(),
+                            "originalDataset": original_file_name
+                        }
+                        
+                        preprocessing_options.append(preprocessing_option)
+                        
+                    except Exception as e:
+                        logger.warning(f"Error reading preprocessing options from {preprocessing_file}: {e}")
+                        continue
+        
+        # Sort by creation date (newest first)
+        preprocessing_options.sort(key=lambda x: x["createdDate"], reverse=True)
+        
+        logger.info(f"Found {len(preprocessing_options)} preprocessing option sets")
+        return preprocessing_options
+        
+    except Exception as e:
+        logger.error(f"Error getting preprocessing options: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving preprocessing options: {str(e)}")
+
+def generate_preprocessing_name(options: dict, dataset_name: str) -> str:
+    """Generate a descriptive name for preprocessing options"""
+    base_name = f"Preprocessing per {dataset_name}"
+    
+    # Add key characteristics
+    characteristics = []
+    
+    if options.get("transformation") and options["transformation"] != "none":
+        characteristics.append(options["transformation"])
+    
+    if options.get("fillMissingValues") and options["fillMissingValues"] != "none":
+        characteristics.append(f"missing: {options['fillMissingValues']}")
+    
+    if options.get("removeOutliers"):
+        characteristics.append("no outliers")
+    
+    if characteristics:
+        return f"{base_name} ({', '.join(characteristics)})"
+    
+    return base_name
+
+def generate_preprocessing_description(options: dict) -> str:
+    """Generate a detailed description of preprocessing options"""
+    descriptions = []
+    
+    # Column classification
+    column_class = options.get("columnClassification", {})
+    if column_class:
+        if column_class.get("outcomeColumn"):
+            descriptions.append(f"Outcome: {column_class['outcomeColumn']}")
+        
+        covariates = column_class.get("covariateColumns", [])
+        if covariates:
+            descriptions.append(f"Covariates: {len(covariates)} columns")
+        
+        omics = column_class.get("omicsColumns", [])
+        if omics:
+            descriptions.append(f"Omics: {len(omics)} features")
+    
+    # Transformation
+    transformation = options.get("transformation", "none")
+    if transformation != "none":
+        descriptions.append(f"Transform: {transformation}")
+    
+    # Missing values
+    missing_handling = options.get("fillMissingValues", "none")
+    if missing_handling != "none":
+        descriptions.append(f"Missing values: {missing_handling}")
+    
+    # Outliers
+    if options.get("removeOutliers"):
+        method = options.get("outlierMethod", "unknown")
+        descriptions.append(f"Outlier removal: {method}")
+    
+    # Null values
+    if options.get("removeNullValues"):
+        descriptions.append("Remove null values")
+    
+    return "; ".join(descriptions) if descriptions else "Standard preprocessing configuration"
+
+# Get specific preprocessing options by session ID
+@app.get("/preprocessing-options/{session_id}")
+def get_preprocessing_option_by_id(session_id: str):
+    """Get specific preprocessing options by session ID"""
+    try:
+        user_sessions_dir = "user_sessions"
+        session_path = os.path.join(user_sessions_dir, session_id)
+        
+        if not os.path.exists(session_path):
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        preprocessing_file = os.path.join(session_path, "preprocessing_options.json")
+        
+        if not os.path.exists(preprocessing_file):
+            raise HTTPException(status_code=404, detail="Preprocessing options not found for this session")
+        
+        with open(preprocessing_file, 'r', encoding='utf-8') as f:
+            options_data = json.load(f)
+        
+        # Get additional session metadata
+        file_stats = os.stat(preprocessing_file)
+        created_date = datetime.fromtimestamp(file_stats.st_ctime)
+        
+        # Extract original file name if available
+        original_file_name = "Unknown dataset"
+        for file in os.listdir(session_path):
+            if file.startswith("original_"):
+                original_file_name = file.replace("original_", "")
+                break
+        
+        return {
+            "sessionId": session_id,
+            "name": generate_preprocessing_name(options_data, original_file_name),
+            "description": generate_preprocessing_description(options_data),
+            "options": options_data,
+            "createdDate": created_date.isoformat(),
+            "originalDataset": original_file_name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting preprocessing options for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving preprocessing options: {str(e)}")
+
+# Get available files from user sessions
+@app.get("/session-files")
+def get_session_files():
+    """Get available files from all user sessions"""
+    try:
+        user_sessions_dir = "user_sessions"
+        files = []
+        
+        if not os.path.exists(user_sessions_dir):
+            return files
+        
+        # Scan through user session directories
+        for session_folder in os.listdir(user_sessions_dir):
+            session_path = os.path.join(user_sessions_dir, session_folder)
+            if os.path.isdir(session_path):
+                
+                # Look for original files only
+                for file in os.listdir(session_path):
+                    file_path = os.path.join(session_path, file)
+                    
+                    # Include only original files
+                    if file.startswith("original_"):
+                        
+                        try:
+                            file_stats = os.stat(file_path)
+                            file_size = file_stats.st_size
+                            last_modified = datetime.fromtimestamp(file_stats.st_mtime)
+                            
+                            # Process original files
+                            display_name = file.replace("original_", "")
+                            file_type = "original"
+                            description = f"File originale da sessione {session_folder}"
+                            
+                            file_info = {
+                                "id": f"{session_folder}_{file}",
+                                "name": display_name,
+                                "originalName": file,
+                                "size": file_size,
+                                "lastModified": last_modified.isoformat(),
+                                "path": file_path,
+                                "sessionId": session_folder,
+                                "fileType": file_type,
+                                "description": description
+                            }
+                            
+                            files.append(file_info)
+                            
+                        except Exception as e:
+                            logger.warning(f"Error reading file {file_path}: {e}")
+                            continue
+        
+        # Sort by last modified date (newest first)
+        files.sort(key=lambda x: x["lastModified"], reverse=True)
+        
+        logger.info(f"Found {len(files)} session files")
+        return files
+        
+    except Exception as e:
+        logger.error(f"Error getting session files: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving session files: {str(e)}")
+
+# Get specific file content from session
+@app.get("/session-files/{session_id}/{filename}")
+def get_session_file(session_id: str, filename: str):
+    """Get specific file content from a session"""
+    try:
+        user_sessions_dir = "user_sessions"
+        session_path = os.path.join(user_sessions_dir, session_id)
+        file_path = os.path.join(session_path, filename)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Security check: ensure file is within session directory
+        if not os.path.abspath(file_path).startswith(os.path.abspath(session_path)):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Return file as response
+        return FileResponse(
+            file_path,
+            media_type='application/octet-stream',
+            filename=filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting session file {session_id}/{filename}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving file: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

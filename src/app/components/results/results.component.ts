@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, AfterViewChecked, DoCheck } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, signal, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, AfterViewChecked, DoCheck } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatSortModule } from '@angular/material/sort';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,6 +13,7 @@ import { DataFlowService } from '../../services/data-flow.service';
 import { ApiService } from '../../services/api.service';
 import { NavigationService } from '../../services/navigation.service';
 import { PlotlyService } from '../../services/plotly.service';
+import { SessionService } from '../../services/session.service';
 import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
 
 @Component({
@@ -44,7 +45,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
         </div>
       } @else if (error()) {
         <div class="error-state">
-          <div class="error-icon">⚠</div>
+          <div class="error-icon">⚠️</div>
           <h2>Errore durante l'analisi</h2>
           <p>{{ error() }}</p>
           <button class="retry-btn" (click)="retryAnalysis()">Riprova</button>
@@ -73,16 +74,20 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
           <!-- Main Section Navigation -->
           <div class="section-navigation">
             <ul class="section-tabs">
-              <li class="section-tab" [class.active]="selectedSection === 'bivariate'" (click)="selectSection('bivariate')">
-                <span class="section-icon">📊</span>
-                <span class="section-label">Analisi Bivariate</span>
-                <span class="section-count">({{ getBivariateTests().length }})</span>
-              </li>
-              <li class="section-tab" [class.active]="selectedSection === 'multivariate'" (click)="selectSection('multivariate')">
-                <span class="section-icon">🔬</span>
-                <span class="section-label">Analisi Multivariate</span>
-                <span class="section-count">({{ getMultivariateTests().length }})</span>
-              </li>
+              @if (getBivariateTests().length > 0) {
+                <li class="section-tab" [class.active]="selectedSection === 'bivariate'" (click)="selectSection('bivariate')">
+                  <span class="section-icon">📊</span>
+                  <span class="section-label">Analisi Bivariate</span>
+                  <span class="section-count">({{ getBivariateTests().length }})</span>
+                </li>
+              }
+              @if (getMultivariateTests().length > 0) {
+                <li class="section-tab" [class.active]="selectedSection === 'multivariate'" (click)="selectSection('multivariate')">
+                  <span class="section-icon">🔬</span>
+                  <span class="section-label">Analisi Multivariate</span>
+                  <span class="section-count">({{ getMultivariateTests().length }})</span>
+                </li>
+              }
               <li class="section-tab" [class.active]="selectedSection === 'summary'" (click)="selectSection('summary')">
                 <span class="section-icon">📋</span>
                 <span class="section-label">Riepilogo</span>
@@ -140,7 +145,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                                 <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                                 <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
                               </table>
-                              <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                              <mat-paginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                             </div>
                             <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
                           </div>
@@ -165,7 +170,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                                   <tr mat-header-row *matHeaderRowDef="influentialRemovedColumns"></tr>
                                   <tr mat-row *matRowDef="let row; columns: influentialRemovedColumns;" [ngClass]="getRowClass(row)"></tr>
                                 </table>
-                                <mat-paginator #influentialPaginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                                <mat-paginator #influentialPaginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                               </div>
                               <div class="manhattan-plot" [attr.id]="'manhattan-plot-no-influential-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
                             </div>
@@ -182,7 +187,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                               <!-- Dynamic Columns -->
                               @for (column of displayedColumns; track column) {
                                 <ng-container [matColumnDef]="column">
-                                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ getColumnDisplayName(column) }}</th>
+                                  <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align: left !important;">{{ getColumnDisplayName(column) }}</th>
                                   <td mat-cell *matCellDef="let row" [style.text-align]="isNumericColumn(column) ? 'right' : 'left'">
                                     {{ formatCellValue(row[column], column) }}
                                   </td>
@@ -191,7 +196,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                               <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                               <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
                             </table>
-                            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                            <mat-paginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                           </div>
                           <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
                         </div>
@@ -223,7 +228,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                     <div class="test-card">
                       <h3>{{ getTestDisplayName(selectedMultivariateTab) }}</h3>
                       
-                      <!-- Ridge/Lasso/Elastic Net Header Info -->
+                      <!-- Method-specific Header Info -->
                       @if (isRegularizationMethod(selectedMultivariateTab)) {
                         <div class="regularization-info">
                           <div class="info-cards">
@@ -238,8 +243,69 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                               </div>
                             }
                             <div class="info-card">
-                              <span class="info-label">Metrica Migliore</span>
-                              <span class="info-value">{{ getBestMetric(selectedMultivariateTab) }}</span>
+                              <span class="info-label">{{ getMethodInfoLabel(selectedMultivariateTab) }}</span>
+                              <span class="info-value">{{ getMethodInfoValue(selectedMultivariateTab) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                      
+                      @if (selectedMultivariateTab === 'randomForest') {
+                        <div class="regularization-info">
+                          <div class="info-cards">
+                            <div class="info-card">
+                              <span class="info-label">Numero di Alberi</span>
+                              <span class="info-value">{{ getRandomForestTrees(selectedMultivariateTab) }}</span>
+                            </div>
+                            <div class="info-card">
+                              <span class="info-label">mtry Utilizzato</span>
+                              <span class="info-value">{{ getRandomForestMtry(selectedMultivariateTab) }}</span>
+                            </div>
+                            <div class="info-card">
+                              <span class="info-label">{{ getMethodInfoLabel(selectedMultivariateTab) }}</span>
+                              <span class="info-value">{{ getMethodInfoValue(selectedMultivariateTab) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                      
+                      @if (selectedMultivariateTab === 'boruta') {
+                        <div class="regularization-info">
+                          <div class="info-cards">
+                            <div class="info-card">
+                              <span class="info-label">Caratteristiche Confermate</span>
+                              <span class="info-value">{{ getBorutaConfirmedFeatures(selectedMultivariateTab) }}</span>
+                            </div>
+                            <div class="info-card">
+                              <span class="info-label">mtry Utilizzato</span>
+                              <span class="info-value">{{ getBorutaMtry(selectedMultivariateTab) }}</span>
+                            </div>
+                            <div class="info-card">
+                              <span class="info-label">Numero di Alberi</span>
+                              <span class="info-value">{{ getBorutaTrees(selectedMultivariateTab) }}</span>
+                            </div>
+                            <div class="info-card">
+                              <span class="info-label">{{ getMethodInfoLabel(selectedMultivariateTab) }}</span>
+                              <span class="info-value">{{ getMethodInfoValue(selectedMultivariateTab) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      }
+                      
+                      @if (selectedMultivariateTab === 'rfe') {
+                        <div class="regularization-info">
+                          <div class="info-cards">
+                            <div class="info-card">
+                              <span class="info-label">Dimensioni Sottoinsiemi Testati</span>
+                              <span class="info-value">{{ getRFESubsetSizesTested(selectedMultivariateTab) }}</span>
+                            </div>
+                            <div class="info-card">
+                              <span class="info-label">Dimensione Ottimale</span>
+                              <span class="info-value">{{ getRFEOptimalSize(selectedMultivariateTab) }}</span>
+                            </div>
+                            <div class="info-card">
+                              <span class="info-label">{{ getMethodInfoLabel(selectedMultivariateTab) }}</span>
+                              <span class="info-value">{{ getMethodInfoValue(selectedMultivariateTab) }}</span>
                             </div>
                           </div>
                         </div>
@@ -260,16 +326,19 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                             <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
                           </table>
-                          <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+                          <mat-paginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                         </div>
-                        <div class="feature-importance-plot" [attr.id]="'feature-plot-' + selectedMultivariateTab" style="flex: 1; min-width: 300px; height: 400px;">
-                          @if (isRegularizationMethod(selectedMultivariateTab)) {
-                            <!-- Feature importance plot will be rendered here -->
-                          } @else {
-                            <!-- Manhattan plot for other multivariate methods -->
-                            <div [attr.id]="'manhattan-plot-' + selectedMultivariateTab" style="width: 100%; height: 100%;"></div>
-                          }
-                        </div>
+                        <!-- Remove the feature importance plot for Boruta -->
+                        @if (selectedMultivariateTab !== 'boruta') {
+                          <div class="feature-importance-plot" [attr.id]="'feature-plot-' + selectedMultivariateTab" style="flex: 1; min-width: 300px; height: 400px;">
+                            @if (hasImportanceData(selectedMultivariateTab)) {
+                              <!-- Feature importance plot will be rendered here for all methods with importance data -->
+                            } @else {
+                              <!-- Manhattan plot for methods without importance data -->
+                              <div [attr.id]="'manhattan-plot-' + selectedMultivariateTab" style="width: 100%; height: 100%;"></div>
+                            }
+                          </div>
+                        }
                       </div>
                     </div>
                   }
@@ -308,13 +377,23 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
             </div>
           }
 
-          <!-- Empty State -->
+          <!-- Empty State or No Tests Found -->
           @if ((selectedSection === 'bivariate' && getBivariateTests().length === 0) || 
                (selectedSection === 'multivariate' && getMultivariateTests().length === 0)) {
             <div class="empty-section">
               <div class="empty-icon">🔍</div>
               <h3>Nessun risultato trovato</h3>
               <p>Non sono stati trovati risultati per questa categoria di test.</p>
+            </div>
+          }
+
+          <!-- Global fallback for completely empty results -->
+          @if (!hasAnyTests()) {
+            <div class="empty-section">
+              <div class="empty-icon">⚠️</div>
+              <h3>Nessun Test Disponibile</h3>
+              <p>L'analisi è stata completata ma non sono stati trovati test riconosciuti.</p>
+              <p class="placeholder-note">Questo potrebbe indicare un problema nell'elaborazione dei risultati.</p>
             </div>
           }
 
@@ -806,21 +885,49 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       font-weight: 600;
     }
 
-    /* Table Styles */
-    .significant-pvalue {
-      background-color: #dbeafe !important; /* Light blue for p-value < 0.05 */
+    /* Table Styles - Updated with stronger, more distinguishable colors and black text */
+    .significant-highly {
+      background-color: #fecaca !important; /* Stronger red for p < 0.001 */
+      border-left: 6px solid #dc2626 !important;
+      color: #000000 !important;
     }
     
-    .significant-pvalue:hover {
-      background-color: #bfdbfe !important;
+    .significant-highly:hover {
+      background-color: #fca5a5 !important;
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2) !important;
     }
 
-    .significant-fdr {
-      background-color: #dcfce7 !important; /* Light green for FDR < 0.05 */
+    .significant-very {
+      background-color: #fed7aa !important; /* Stronger orange for p < 0.01 */
+      border-left: 6px solid #f97316 !important;
+      color: #000000 !important;
     }
     
-    .significant-fdr:hover {
-      background-color: #bbf7d0 !important;
+    .significant-very:hover {
+      background-color: #fdba74 !important;
+      box-shadow: 0 2px 8px rgba(249, 115, 22, 0.2) !important;
+    }
+
+    .significant-moderate {
+      background-color: #fef3c7 !important; /* Stronger yellow for p < 0.05 */
+      border-left: 6px solid #f59e0b !important;
+      color: #000000 !important;
+    }
+    
+    .significant-moderate:hover {
+      background-color: #fde68a !important;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2) !important;
+    }
+
+    .significant-confirmed {
+      background-color: #bbf7d0 !important; /* Stronger green for confirmed features */
+      border-left: 6px solid #22c55e !important;
+      color: #000000 !important;
+    }
+    
+    .significant-confirmed:hover {
+      background-color: #86efac !important;
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2) !important;
     }
 
     .mat-mdc-table {
@@ -830,6 +937,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
     .mat-mdc-header-cell {
       font-weight: 600;
       color: #374151;
+      text-align: left !important;
     }
 
     /* Linear Regression Specific Styles */
@@ -901,6 +1009,10 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   analysisStatus = signal<'pending' | 'running' | 'completed' | 'failed'>('pending');
   resultsReady = signal(false);
   showResults = signal(false);
+  forceNewAnalysis = signal(false); // Flag to force new analysis instead of loading existing
+  
+  // Cached test lists to prevent constant re-evaluation
+  testNames = signal<string[]>([]);
   
   selectedTab: string | null = null;
   private lastTab: string | null = null;
@@ -916,8 +1028,53 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     private apiService: ApiService,
     private navigationService: NavigationService,
     private plotlyService: PlotlyService,
+    private sessionService: SessionService,
     private cdr: ChangeDetectorRef
   ) {}
+
+  // Navigation methods
+  selectSection(section: 'bivariate' | 'multivariate' | 'summary') {
+    this.selectedSection = section;
+    console.log('[DIAGNOSTICS] Section changed to:', section);
+    
+    // Reset tab selections when changing sections
+    if (section === 'bivariate') {
+      this.selectedMultivariateTab = null;
+    } else if (section === 'multivariate') {
+      this.selectedBivariateTab = null;
+    }
+    
+    // Auto-select first available test in new section
+    setTimeout(() => {
+      if (section === 'bivariate') {
+        const bivariateTests = this.getBivariateTests();
+        if (bivariateTests.length > 0 && !this.selectedBivariateTab) {
+          this.selectBivariateTab(bivariateTests[0]);
+        }
+      } else if (section === 'multivariate') {
+        const multivariateTests = this.getMultivariateTests();
+        if (multivariateTests.length > 0 && !this.selectedMultivariateTab) {
+          this.selectMultivariateTab(multivariateTests[0]);
+        }
+      }
+    }, 100);
+  }
+
+  selectBivariateTab(testKey: string) {
+    console.log('[DIAGNOSTICS] Selecting bivariate tab:', testKey);
+    this.selectedBivariateTab = testKey;
+    this.selectedTab = testKey;
+    this.updateTableForCurrentTab();
+    setTimeout(() => this.createPlots(), 250);
+  }
+
+  selectMultivariateTab(testKey: string) {
+    console.log('[DIAGNOSTICS] Selecting multivariate tab:', testKey);
+    this.selectedMultivariateTab = testKey;
+    this.selectedTab = testKey;
+    this.updateTableForCurrentTab();
+    setTimeout(() => this.createPlots(), 250);
+  }
 
 
 
@@ -949,9 +1106,18 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
 
   updateTableDataSource() {
     console.log('[DIAGNOSTICS] updateTableDataSource - Starting data source update');
-    console.log('[DIAGNOSTICS] updateTableDataSource - selectedTab:', this.selectedTab);
     
-    const data = this.getTestData(this.selectedTab || '');
+    // Determine the current tab based on the selected section
+    let currentTab: string | null = null;
+    if (this.selectedSection === 'bivariate' && this.selectedBivariateTab) {
+      currentTab = this.selectedBivariateTab;
+    } else if (this.selectedSection === 'multivariate' && this.selectedMultivariateTab) {
+      currentTab = this.selectedMultivariateTab;
+    }
+    
+    console.log('[DIAGNOSTICS] updateTableDataSource - currentTab:', currentTab);
+    
+    const data = this.getTestData(currentTab || '');
     console.log('[DIAGNOSTICS] updateTableDataSource - Retrieved data length:', data.length);
     console.log('[DIAGNOSTICS] updateTableDataSource - Sample data:', data[0]);
     
@@ -984,16 +1150,25 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
 
   updateTableForCurrentTab() {
     console.log('[DIAGNOSTICS] updateTableForCurrentTab - Starting table update');
-    console.log('[DIAGNOSTICS] updateTableForCurrentTab - selectedTab:', this.selectedTab);
     
-    if (!this.selectedTab) {
+    // Determine the current tab based on the selected section
+    let currentTab: string | null = null;
+    if (this.selectedSection === 'bivariate' && this.selectedBivariateTab) {
+      currentTab = this.selectedBivariateTab;
+    } else if (this.selectedSection === 'multivariate' && this.selectedMultivariateTab) {
+      currentTab = this.selectedMultivariateTab;
+    }
+    
+    console.log('[DIAGNOSTICS] updateTableForCurrentTab - currentTab:', currentTab, 'section:', this.selectedSection);
+    
+    if (!currentTab) {
       console.log('[DIAGNOSTICS] updateTableForCurrentTab - No selected tab, returning');
       return;
     }
     
     // Get the columns for the current test
     console.log('[DIAGNOSTICS] updateTableForCurrentTab - Getting columns for test');
-    this.displayedColumns = this.getColumnsForTest(this.selectedTab);
+    this.displayedColumns = this.getColumnsForTest(currentTab);
     console.log('[DIAGNOSTICS] updateTableForCurrentTab - Displayed columns:', this.displayedColumns);
     
     // Update the data source with proper reinitialization
@@ -1001,9 +1176,9 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     this.updateTableDataSource();
     
     // Handle linear regression tests with influential removed data
-    if (this.isLinearRegressionTest(this.selectedTab)) {
+    if (this.isLinearRegressionTest(currentTab)) {
       console.log('[DIAGNOSTICS] updateTableForCurrentTab - Handling linear regression influential data');
-      this.updateInfluentialRemovedTable(this.selectedTab);
+      this.updateInfluentialRemovedTable(currentTab);
     }
     
     // Force view update to ensure Material Table recognizes new structure
@@ -1057,6 +1232,10 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       'pValue': 'p-value',
       'pval': 'p-value',
       'p_value': 'p-value',
+      'P.value': 'p-value',
+      'Pr(>|t|)': 'p-value',
+      'p.value': 'p-value',
+      'pvalue': 'p-value',
       'fdr': 'FDR',
       'adj_pval': 'Adj. p-value',
       'padj': 'Adj. p-value',
@@ -1087,7 +1266,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   isNumericColumn(columnKey: string): boolean {
     // Define which columns should be treated as numeric for right alignment
     const numericColumns = [
-      'estimate', 'logFC', 'coefficient', 'Coefficient', 'pValue', 'pval', 'p_value',
+      'estimate', 'logFC', 'coefficient', 'Coefficient', 'pValue', 'pval', 'p_value', 'P.value', 'Pr(>|t|)', 'p.value', 'pvalue',
       'fdr', 'adj_pval', 'padj', 'statistic', 'tstat', 'zstat',
       'correlation', 'importance', 'rank', 'sign'
     ];
@@ -1111,24 +1290,35 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     if (this.isNumericColumn(columnKey)) {
       const numValue = Number(value);
       if (!isNaN(numValue)) {
+        let formattedValue = '';
+        
         // Use scientific notation for very large or very small numbers
         if (Math.abs(numValue) >= 1e6 || (Math.abs(numValue) <= 1e-6 && numValue !== 0)) {
-          return numValue.toExponential(2);
+          formattedValue = numValue.toExponential(2);
+        } else {
+          // Different precision for different types of values using standard notation
+          if (columnKey.includes('pValue') || columnKey.includes('fdr') || 
+              columnKey.includes('pval') || columnKey.includes('padj') ||
+              columnKey.includes('P.value') || columnKey.includes('Pr(>|t|)') ||
+              columnKey.includes('p.value') || columnKey.includes('pvalue')) {
+            formattedValue = numValue.toFixed(6); // 6 decimals for p-values in standard notation
+          } else if (columnKey.includes('correlation')) {
+            formattedValue = numValue.toFixed(3); // 3 decimals for correlations
+          } else if (columnKey === 'Coefficient' || columnKey === 'coefficient') {
+            formattedValue = numValue.toFixed(4); // 4 decimals for coefficients
+          } else if (columnKey === 'importance') {
+            formattedValue = numValue.toFixed(2); // 2 decimals for importance
+          } else {
+            formattedValue = numValue.toFixed(4); // 4 decimals for other numeric values
+          }
         }
         
-        // Different precision for different types of values using standard notation
-        if (columnKey.includes('pValue') || columnKey.includes('fdr') || 
-            columnKey.includes('pval') || columnKey.includes('padj')) {
-          return numValue.toFixed(6); // 6 decimals for p-values in standard notation
-        } else if (columnKey.includes('correlation')) {
-          return numValue.toFixed(3); // 3 decimals for correlations
-        } else if (columnKey === 'Coefficient' || columnKey === 'coefficient') {
-          return numValue.toFixed(4); // 4 decimals for coefficients
-        } else if (columnKey === 'importance') {
-          return numValue.toFixed(2); // 2 decimals for importance
-        } else {
-          return numValue.toFixed(4); // 4 decimals for other numeric values
+        // Add asterisk for significant FDR values (â‰¤ 0.05)
+        if ((columnKey === 'fdr' || columnKey === 'adj_pval' || columnKey === 'padj') && numValue <= 0.05) {
+          formattedValue += ' *';
         }
+        
+        return formattedValue;
       }
     }
     
@@ -1141,36 +1331,37 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   getRowClass(row: any): string {
-    // Dynamic row styling based on significance
+    // Dynamic row styling based on significance thresholds matching Manhattan plots
     const classes: string[] = [];
     
-    // Check for FDR significance first (higher priority - light green)
-    const fdrFields = ['fdr', 'adj_pval', 'padj'];
-    for (const field of fdrFields) {
-      if (row[field] !== undefined && row[field] !== null) {
-        const fdrVal = Number(row[field]);
-        if (!isNaN(fdrVal) && fdrVal < 0.05) {
-          classes.push('significant-fdr');
-          return classes.join(' '); // Return early, FDR takes priority
-        }
-      }
-    }
+    // Get p-value from any available p-value column
+    const pValueFields = ['pValue', 'pval', 'p_value', 'P.value', 'Pr(>|t|)', 'p.value', 'pvalue'];
+    let pVal: number | null = null;
     
-    // Check for p-value significance (light blue)
-    const pValueFields = ['pValue', 'pval', 'p_value'];
     for (const field of pValueFields) {
       if (row[field] !== undefined && row[field] !== null) {
-        const pVal = Number(row[field]);
-        if (!isNaN(pVal) && pVal < 0.05) {
-          classes.push('significant-pvalue');
+        const parsedPVal = Number(row[field]);
+        if (!isNaN(parsedPVal)) {
+          pVal = parsedPVal;
           break;
         }
       }
     }
     
+    // Apply color coding based on p-value thresholds matching Manhattan plot colors
+    if (pVal !== null) {
+      if (pVal < 0.001) {
+        classes.push('significant-highly'); // Dark red for p < 0.001
+      } else if (pVal < 0.01) {
+        classes.push('significant-very'); // Orange for p < 0.01
+      } else if (pVal < 0.05) {
+        classes.push('significant-moderate'); // Yellow for p < 0.05
+      }
+    }
+    
     // Check for decision-based significance (e.g., Boruta results)
     if (row.decision && (row.decision === 'Confirmed' || row.decision === 'Important')) {
-      classes.push('significant-fdr'); // Use green for confirmed features
+      classes.push('significant-confirmed'); // Green for confirmed features
     }
     
     return classes.join(' ');
@@ -1179,7 +1370,35 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   ngOnInit() {
     console.log('[DIAGNOSTICS] ngOnInit - Component initialization started');
     
-    // Check prerequisites
+    // Notify navigation service that we're entering analysis state (disable backward navigation)
+    this.navigationService.setAnalysisActiveState(true);
+    
+    // Check if we have an analysisId from recovery workflow
+    const recoveryAnalysisId = this.dataFlowService.analysisId();
+    
+    if (recoveryAnalysisId) {
+      console.log('[DIAGNOSTICS] Recovery mode detected with analysisId:', recoveryAnalysisId);
+      // In recovery mode, skip prerequisites check and load results directly
+      this.analysisId.set(recoveryAnalysisId);
+      this.loading.set(true);
+      this.error.set(null);
+      
+      // Load the results for the recovered analysis directly
+      this.apiService.getAnalysisResults(recoveryAnalysisId).subscribe({
+        next: (result: AnalysisResult) => {
+          console.log('[DIAGNOSTICS] Successfully loaded recovered analysis results:', result);
+          this.handleLoadedResults(result, false); // false = don't start new analysis on missing data
+        },
+        error: (err: any) => {
+          console.error('[DIAGNOSTICS] Error loading recovered analysis results:', err);
+          this.loading.set(false);
+          this.error.set(err.message || 'Errore nel caricamento dei risultati dell\'analisi recuperata');
+        }
+      });
+      return;
+    }
+    
+    // Normal workflow: Check prerequisites
     const fileData = this.dataFlowService.fileData();
     const preprocessingOptions = this.dataFlowService.preprocessingOptions();
     const analysisOptions = this.dataFlowService.analysisOptions();
@@ -1199,134 +1418,189 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       return;
     }
 
+    // Check if we should force a new analysis (e.g., after clicking "New Analysis")
+    if (this.forceNewAnalysis()) {
+      console.log('[DIAGNOSTICS] Force new analysis flag set, starting fresh analysis');
+      this.forceNewAnalysis.set(false); // Reset the flag
+      this.submitAnalysis();
+      return;
+    }
+
     // First try to load existing results before starting a new analysis
-    console.log('[DIAGNOSTICS] Prerequisites satisfied, loading existing results');
+    console.log('[DIAGNOSTICS] Prerequisites satisfied, starting workflow');
     this.loadExistingResults();
+  }
+
+  /**
+   * No longer needed - using direct method calls instead of cached signals
+   */
+  private updateCachedTestLists() {
+    // This method is kept for compatibility but does nothing
+    // since we're using direct method calls now
+    console.log('[DIAGNOSTICS] updateCachedTestLists - using direct methods, no caching needed');
+  }
+
+  private generateAnalysisId(): string {
+    // Use the centralized session service for consistent ID generation
+    const analysisId = this.sessionService.generateAnalysisId();
+    
+    console.log('[DIAGNOSTICS] Generated analysisId using session service:', {
+      analysisId,
+      sessionInfo: this.sessionService.getSessionInfo()
+    });
+
+    return analysisId;
   }
 
   private loadExistingResults() {
     console.log('[DIAGNOSTICS] loadExistingResults - Starting to load existing results');
     
-    // Try to load existing results based on current session
-    let userId = window.sessionStorage.getItem('userId');
-    if (!userId) {
-      userId = 'MasterTest';
-      window.sessionStorage.setItem('userId', userId);
-      console.log('[DIAGNOSTICS] No userId found, set to default: MasterTest');
-    } else {
-      console.log('[DIAGNOSTICS] Found existing userId:', userId);
+    // First check if there's a pre-set analysisId from recovery
+    const presetAnalysisId = this.dataFlowService.analysisId();
+    if (presetAnalysisId) {
+      console.log('[DIAGNOSTICS] Found preset analysisId from recovery:', presetAnalysisId);
+      this.analysisId.set(presetAnalysisId);
+      this.loading.set(true);
+      this.error.set(null);
+      
+      // For recovery mode, load results directly
+      this.apiService.getAnalysisResults(presetAnalysisId).subscribe({
+        next: (result: AnalysisResult) => {
+          console.log('[DIAGNOSTICS] Successfully loaded recovered analysis results:', result);
+          this.handleLoadedResults(result, false); // false = don't start new analysis on missing data
+        },
+        error: (err: any) => {
+          console.error('[DIAGNOSTICS] Error loading recovered analysis results:', err);
+          this.loading.set(false);
+          this.error.set(err.message || 'Errore nel caricamento dei risultati dell\'analisi');
+        }
+      });
+      return;
     }
+    
+    // Generate analysis ID for normal workflow
+    const analysisId = this.generateAnalysisId();
+    console.log('[DIAGNOSTICS] Generated analysisId for normal workflow:', analysisId);
 
-    const analysisOptions = this.dataFlowService.analysisOptions();
-    const preprocessingOptions = this.dataFlowService.preprocessingOptions();
-    const sessionId = (analysisOptions?.sessionId || preprocessingOptions?.sessionId || window.sessionStorage.getItem('sessionId') || crypto.randomUUID()) as string;
-    const analysisId = `${userId}_${sessionId}`;
-
-    console.log('[DIAGNOSTICS] Session details:', {
-      userId,
-      sessionId,
-      analysisId,
-      analysisOptionsSessionId: analysisOptions?.sessionId,
-      preprocessingOptionsSessionId: preprocessingOptions?.sessionId,
-      storageSessionId: window.sessionStorage.getItem('sessionId')
-    });
-
-    console.log('[DIAGNOSTICS] Attempting to load existing results for analysisId:', analysisId);
-
-    // Set the analysis ID for display
+    // Set the analysis ID for display and update global state
     this.analysisId.set(analysisId);
+    this.dataFlowService.setAnalysisId(analysisId);
+    this.dataFlowService.setRecoveryMode(false);
     this.loading.set(true);
     this.error.set(null);
 
-    // Try to get existing results
-    this.apiService.getAnalysisResults(analysisId).subscribe({
-      next: (result: AnalysisResult) => {
-        console.log('[DIAGNOSTICS] API Response received:', {
-          resultId: result.id,
-          resultStatus: result.status,
-          resultTimestamp: result.timestamp,
-          hasResults: !!result.results,
-          resultType: typeof result.results
-        });
-        
-        console.log('[DIAGNOSTICS] Full API result structure:', result);
-        console.log('[DIAGNOSTICS] Result.results keys:', result.results ? Object.keys(result.results) : 'null');
-        
-        // Validate results structure - handle nested results
-        let actualResults = result.results;
-        
-        // Check if results is nested (has a nested results property)
-        if (actualResults && typeof actualResults === 'object' && actualResults.results) {
-          console.log('[DIAGNOSTICS] Detected nested results structure, using inner results');
-          actualResults = actualResults.results;
-        }
-        
-        console.log('[DIAGNOSTICS] Actual results after nesting check:', {
-          hasActualResults: !!actualResults,
-          actualResultsType: typeof actualResults,
-          actualResultsKeys: actualResults ? Object.keys(actualResults) : 'null'
-        });
-        
-        if (!actualResults) {
-          console.log('[DIAGNOSTICS] No results found in existing data, starting new analysis');
-          this.submitAnalysis();
-          return;
-        }
+    // For new analyses, don't try to load existing results - just start the analysis
+    console.log('[DIAGNOSTICS] Starting new analysis');
+    this.submitAnalysis();
+  }
 
-        // Check if we have any test data
-        const testKeys = Object.keys(actualResults);
-        console.log('[DIAGNOSTICS] Available tests in existing results:', testKeys);
-        
-        // Check each test for data property
-        for (const testKey of testKeys) {
-          const testData = actualResults[testKey];
-          console.log(`[DIAGNOSTICS] Test ${testKey}:`, {
-            hasData: !!testData?.data,
-            dataLength: testData?.data?.length || 0,
-            testName: testData?.testName,
-            dataType: typeof testData?.data,
-            sampleDataPoint: testData?.data?.[0]
-          });
-        }
-        
-        if (testKeys.length === 0) {
-          console.log('[DIAGNOSTICS] No test data found in existing results, starting new analysis');
-          this.submitAnalysis();
-          return;
-        }
-
-        // Create a properly structured result object
-        const properResult: AnalysisResult = {
-          ...result,
-          results: actualResults
-        };
-
-        console.log('[DIAGNOSTICS] Created proper result object:', {
-          id: properResult.id,
-          status: properResult.status,
-          hasResults: !!properResult.results,
-          resultsKeys: properResult.results ? Object.keys(properResult.results) : 'null'
-        });
-
-        // Load existing results
-        this.loading.set(false);
-        this.results.set(properResult);
-        this.analysisStatus.set('completed');
-        this.resultsReady.set(true);
-        console.log('[DIAGNOSTICS] Results set in component, ready to show');
-        this.navigationService.updateNavigationStatus();
-      },
-      error: (err: any) => {
-        console.log('[DIAGNOSTICS] API error when loading existing results:', {
-          message: err.message,
-          status: err.status,
-          error: err
-        });
-        console.log('[DIAGNOSTICS] No existing results found, starting new analysis');
-        // If no existing results found, start a new analysis
-        this.submitAnalysis();
-      }
+  private handleLoadedResults(result: AnalysisResult, startNewAnalysisOnMissing: boolean = true) {
+    console.log('[DIAGNOSTICS] API Response received:', {
+      resultId: result.id,
+      resultStatus: result.status,
+      resultTimestamp: result.timestamp,
+      hasResults: !!result.results,
+      resultType: typeof result.results
     });
+    
+    console.log('[DIAGNOSTICS] Full API result structure:', result);
+    console.log('[DIAGNOSTICS] Result.results keys:', result.results ? Object.keys(result.results) : 'null');
+    
+    // Validate results structure - handle nested results
+    let actualResults = result.results;
+    
+    // Check if results is nested (has a nested results property)
+    if (actualResults && typeof actualResults === 'object' && actualResults.results) {
+      console.log('[DIAGNOSTICS] Detected nested results structure, using inner results');
+      actualResults = actualResults.results;
+    }
+    
+    console.log('[DIAGNOSTICS] Actual results after nesting check:', {
+      hasActualResults: !!actualResults,
+      actualResultsType: typeof actualResults,
+      actualResultsKeys: actualResults ? Object.keys(actualResults) : 'null'
+    });
+    
+    if (!actualResults) {
+      console.log('[DIAGNOSTICS] No results found in existing data');
+      if (startNewAnalysisOnMissing) {
+        console.log('[DIAGNOSTICS] Starting new analysis');
+        this.submitAnalysis();
+      } else {
+        console.log('[DIAGNOSTICS] Not starting new analysis, showing error');
+        this.loading.set(false);
+        this.error.set('Nessun risultato trovato per questa analisi');
+      }
+      return;
+    }
+
+    // Check if we have any test data
+    const testKeys = Object.keys(actualResults);
+    console.log('[DIAGNOSTICS] Available tests in existing results:', testKeys);
+    
+    // Check each test for data property
+    for (const testKey of testKeys) {
+      const testData = actualResults[testKey];
+      console.log(`[DIAGNOSTICS] Test ${testKey}:`, {
+        hasData: !!testData?.data,
+        dataLength: testData?.data?.length || 0,
+        testName: testData?.testName,
+        dataType: typeof testData?.data,
+        sampleDataPoint: testData?.data?.[0]
+      });
+    }
+    
+    if (testKeys.length === 0) {
+      console.log('[DIAGNOSTICS] No test data found in existing results');
+      if (startNewAnalysisOnMissing) {
+        console.log('[DIAGNOSTICS] Starting new analysis');
+        this.submitAnalysis();
+      } else {
+        console.log('[DIAGNOSTICS] Not starting new analysis, showing error');
+        this.loading.set(false);
+        this.error.set('Nessun dato di test trovato per questa analisi');
+      }
+      return;
+    }
+
+    // Create a properly structured result object
+    const properResult: AnalysisResult = {
+      ...result,
+      results: actualResults
+    };
+
+    console.log('[DIAGNOSTICS] Created proper result object:', {
+      id: properResult.id,
+      status: properResult.status,
+      hasResults: !!properResult.results,
+      resultsKeys: properResult.results ? Object.keys(properResult.results) : 'null'
+    });
+
+    // Load existing results - simple approach like recovery
+    this.loading.set(false);
+    this.results.set(properResult);
+    this.analysisStatus.set('completed');
+    this.resultsReady.set(true);
+    this.showResults.set(true); // Automatically show results
+    
+    console.log('[DIAGNOSTICS] Results loaded successfully:', {
+      hasResults: !!this.results(),
+      resultsKeys: this.results()?.results ? Object.keys(this.results()!.results) : [],
+      bivariateTests: this.getBivariateTests(),
+      multivariateTests: this.getMultivariateTests(),
+      totalTests: this.getTotalTestCount(),
+      hasAnyTests: this.hasAnyTests()
+    });
+    
+    this.navigationService.updateNavigationStatus();
+    
+    // Initialize UI immediately
+    this.initializeDefaultSelections();
+    
+    // Create plots after a short delay
+    setTimeout(() => {
+      this.createPlots();
+    }, 100);
   }
 
   ngAfterViewInit() {
@@ -1350,36 +1624,12 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   private initializeDefaultSelections() {
-    console.log('[DIAGNOSTICS] initializeDefaultSelections - Starting initialization');
-    
-    const currentResults = this.results();
-    console.log('[DIAGNOSTICS] Current results state:', {
-      hasResults: !!currentResults,
-      resultsId: currentResults?.id,
-      resultsStatus: currentResults?.status,
-      hasResultsData: !!currentResults?.results,
-      resultsDataType: typeof currentResults?.results
-    });
-    
-    if (currentResults?.results) {
-      console.log('[DIAGNOSTICS] Results data keys:', Object.keys(currentResults.results));
-      
-      // Log each test's structure
-      Object.keys(currentResults.results).forEach(testKey => {
-        const test = currentResults.results[testKey];
-        console.log(`[DIAGNOSTICS] Test ${testKey}:`, {
-          hasData: !!test?.data,
-          dataLength: test?.data?.length || 0,
-          testName: test?.testName,
-          dataStructure: test?.data?.[0] ? Object.keys(test.data[0]) : 'no data'
-        });
-      });
-    }
+    console.log('[DIAGNOSTICS] initializeDefaultSelections - Starting');
     
     const bivariateTests = this.getBivariateTests();
     const multivariateTests = this.getMultivariateTests();
     
-    console.log('[DIAGNOSTICS] Test categorization results:', {
+    console.log('[DIAGNOSTICS] Available tests:', {
       bivariateTests,
       multivariateTests,
       bivariateCount: bivariateTests.length,
@@ -1391,12 +1641,12 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       this.selectedSection = 'bivariate';
       this.selectedBivariateTab = bivariateTests[0];
       this.selectedTab = this.selectedBivariateTab;
-      console.log('[DIAGNOSTICS] Selected bivariate section with tab:', this.selectedBivariateTab);
+      console.log('[DIAGNOSTICS] Selected bivariate section with test:', this.selectedBivariateTab);
     } else if (multivariateTests.length > 0) {
       this.selectedSection = 'multivariate';
       this.selectedMultivariateTab = multivariateTests[0];
       this.selectedTab = this.selectedMultivariateTab;
-      console.log('[DIAGNOSTICS] Selected multivariate section with tab:', this.selectedMultivariateTab);
+      console.log('[DIAGNOSTICS] Selected multivariate section with test:', this.selectedMultivariateTab);
     } else {
       this.selectedSection = 'summary';
       this.selectedTab = null;
@@ -1405,12 +1655,16 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     
     if (this.selectedTab) {
       this.lastTab = this.selectedTab;
-      console.log('[DIAGNOSTICS] About to update table for current tab:', this.selectedTab);
       this.updateTableForCurrentTab();
-      console.log('[DIAGNOSTICS] Table updated for current tab:', this.selectedTab);
+      console.log('[DIAGNOSTICS] Updated table for current tab:', this.selectedTab);
     }
     
-    console.log('[DIAGNOSTICS] initializeDefaultSelections completed');
+    console.log('[DIAGNOSTICS] initializeDefaultSelections completed - Final state:', {
+      selectedSection: this.selectedSection,
+      selectedTab: this.selectedTab,
+      selectedBivariateTab: this.selectedBivariateTab,
+      selectedMultivariateTab: this.selectedMultivariateTab
+    });
   }
 
   ngAfterViewChecked() {
@@ -1420,6 +1674,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       if (plotContainer && !plotContainer.hasChildNodes()) {
         setTimeout(() => this.createPlots(), 100);
       }
+      this.lastTab = this.selectedTab;
     }
   }
 
@@ -1454,14 +1709,12 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     // Use processed file if available, otherwise use original
     const fileToAnalyze = fileData.processedFile || fileData.file;
 
-    // Recupera sessionId e userId
-    let userId = window.sessionStorage.getItem('userId');
-    if (!userId) {
-      userId = 'MasterTest';
-      window.sessionStorage.setItem('userId', userId);
-    }
-    const sessionId = (analysisOptions.sessionId || preprocessingOptions.sessionId || window.sessionStorage.getItem('sessionId') || crypto.randomUUID()) as string;
-    const analysisId = `${userId}_${sessionId}`;
+    // Generate consistent analysis ID
+    const analysisId = this.generateAnalysisId();
+    console.log('[DIAGNOSTICS] Using analysisId for submission:', analysisId);
+    
+    // Extract userId and sessionId from analysisId
+    const [userId, sessionId] = analysisId.split('_', 2);
     
     const request: AnalysisRequest = {
       sessionId,
@@ -1477,6 +1730,10 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     this.analysisStatus.set('running');
     this.loading.set(true);
     this.error.set(null);
+    
+    // Update global state to reflect new analysis (clears recovery mode)
+    this.dataFlowService.setAnalysisId(analysisId);
+    this.dataFlowService.setRecoveryMode(false);
 
     // Submit analysis and poll for status/results
     this.apiService.submitAnalysis(request).subscribe({
@@ -1493,8 +1750,8 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   private pollAnalysisStatus(analysisId: string) {
-    // Polling for status every 60 seconds (instead of 2 seconds)
-    const pollInterval = 60000; // 60 seconds
+    // Polling for status every 30 seconds
+    const pollInterval = 30000; // 30 seconds
     
     const poll = () => {
       this.apiService.getAnalysisStatus(analysisId).subscribe({
@@ -1511,21 +1768,13 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
             // Continue polling
             setTimeout(poll, pollInterval);
           } else if (response.status === 'completed') {
+            // Analysis completed successfully - show button to view results
+            console.log('[DIAGNOSTICS] Analysis completed successfully');
+            this.loading.set(false);
             this.analysisStatus.set('completed');
-            // Results are ready, but don't show them immediately
-            if (response.results) {
-              // Process results directly from status response
-              console.log('[DIAGNOSTICS] Results found in status response, marking as ready...');
-              this.loading.set(false);
-              this.results.set(response);
-              this.resultsReady.set(true);
-              this.navigationService.updateNavigationStatus();
-            } else {
-              // Fallback to separate results call if needed
-              console.log('[DIAGNOSTICS] No results in status response, fetching separately...');
-              this.getAnalysisResults(analysisId);
-            }
-          } else if (response.status === 'error' || response.status === 'failed') {
+            this.resultsReady.set(true);
+            this.showResults.set(false); // Don't show results yet, show button instead
+          } else if (response.status === 'error') {
             this.loading.set(false);
             this.analysisStatus.set('failed');
             this.error.set(response.error || 'L\'analisi è fallita. Riprova.');
@@ -1547,37 +1796,16 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     poll();
   }
 
+  // Method called when user clicks "View Results" button
   private getAnalysisResults(analysisId: string) {
+    // This method is now simplified - just delegate to viewResults logic
     this.apiService.getAnalysisResults(analysisId).subscribe({
       next: (result: AnalysisResult) => {
-        console.log('[Diagnostica] Risultato API getAnalysisResults:', result);
-        
-        // Validate results structure
-        if (!result.results) {
-          console.error('Invalid results structure:', result);
-          this.error.set('Struttura dei risultati non valida');
-          this.loading.set(false);
-          return;
-        }
-
-        // Check if we have any test data
-        const testKeys = Object.keys(result.results);
-        console.log('Available tests:', testKeys);
-        
-        if (testKeys.length === 0) {
-          console.error('No test results found');
-          this.error.set('Nessun risultato di test trovato');
-          this.loading.set(false);
-          return;
-        }
-
-        this.loading.set(false);
-        this.results.set(result);
-        this.analysisStatus.set('completed');
-        this.resultsReady.set(true);
-        this.navigationService.updateNavigationStatus();
+        console.log('[DIAGNOSTICS] getAnalysisResults - Successfully loaded results:', result);
+        this.handleLoadedResults(result, false);
       },
       error: (err: any) => {
+        console.error('[DIAGNOSTICS] getAnalysisResults - Error loading results:', err);
         this.loading.set(false);
         this.error.set(err.message || 'Errore nel recupero dei risultati dell\'analisi');
       }
@@ -1586,25 +1814,58 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
 
   private createPlots() {
     const results = this.results()?.results;
-    if (!results || !this.selectedTab) return;
+    if (!results) return;
     
-    const test = results[this.selectedTab];
-    if (!test?.data || test.data.length === 0) return;
+    console.log('[DIAGNOSTICS] createPlots called with:', {
+      hasResults: !!results,
+      selectedSection: this.selectedSection,
+      selectedBivariateTab: this.selectedBivariateTab,
+      selectedMultivariateTab: this.selectedMultivariateTab
+    });
     
-    console.log(`Creating plots for test: ${this.selectedTab}`);
-    console.log('Test data structure:', test);
+    // Determine which tab is currently selected based on the section
+    let selectedTab: string | null = null;
+    if (this.selectedSection === 'bivariate' && this.selectedBivariateTab) {
+      selectedTab = this.selectedBivariateTab;
+    } else if (this.selectedSection === 'multivariate' && this.selectedMultivariateTab) {
+      selectedTab = this.selectedMultivariateTab;
+    }
     
-    const selectedTab = this.selectedTab; // Store in local variable for null safety
+    if (!selectedTab) {
+      console.log('[DIAGNOSTICS] No tab selected for current section');
+      return;
+    }
+    
+    const test = results[selectedTab];
+    if (!test?.data || test.data.length === 0) {
+      console.log('[DIAGNOSTICS] No test data found for tab:', selectedTab);
+      return;
+       }
+    
+ }
+    
+    console.log(`[DIAGNOSTICS] Creating plots for test: ${selectedTab} in section: ${this.selectedSection}`);
+    console.log('Test data structure:', {
+      testName: test.testName,
+      dataLength: test.data.length,
+      sampleData: test.data[0]
+    });
     
     // Wait for the DOM to be updated with the new tab content
     setTimeout(() => {
       // Handle different plot types based on test type and section
-      if (this.isRegularizationMethod(selectedTab)) {
-        // Use the improved feature importance plot for regularization methods
-        this.createFeatureImportancePlot();
-      } else if (this.isFeatureSelectionMethod(selectedTab)) {
-        // For multivariate feature selection methods (RFE, Boruta, Random Forest)
-        // These are in the multivariate section and use Manhattan plots
+      if (selectedTab === 'boruta') {
+        // Create Boruta boxplot
+        this.createBorutaBoxplot(selectedTab);
+      } else if (this.hasImportanceData(selectedTab)) {
+        // Use feature importance plot for all multivariate methods with importance data
+        this.createFeatureImportancePlot(selectedTab);
+      } else if (this.isLinearRegressionTest(selectedTab)) {
+        // Use the dedicated linear regression Manhattan plot for linear regression tests
+        this.createLinearRegressionManhattanPlot(selectedTab, test.data, 'manhattan-plot-' + selectedTab);
+      } else if (this.isFeatureSelectionMethod(selectedTab) || this.getMultivariateTests().includes(selectedTab)) {
+        // For multivariate methods without importance data (and feature selection methods that don't have importance)
+        // These use Manhattan plots
         this.createManhattanPlot(selectedTab, test.data, 'manhattan-plot-' + selectedTab);
       } else if (this.isTTestType(selectedTab)) {
         // For t-tests, create both Manhattan plot and additional plots
@@ -1628,9 +1889,57 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       // For linear regression tests, also create the influential-removed plot if data exists
       if (this.isLinearRegressionTest(selectedTab) && this.hasInfluentialRemovedData(selectedTab)) {
         const influentialRemovedData = this.getInfluentialRemovedData(selectedTab);
-        this.createManhattanPlot(selectedTab, influentialRemovedData, 'manhattan-plot-no-influential-' + selectedTab);
+        this.createLinearRegressionManhattanPlot(selectedTab, influentialRemovedData, 'manhattan-plot-no-influential-' + selectedTab);
       }
     }, 250); // Increased timeout to ensure DOM is ready
+  }
+
+  private createLinearRegressionManhattanPlot(testKey: string, data: any[], containerId: string) {
+    console.log(`[DEBUG] createLinearRegressionManhattanPlot called with:`, {
+      testKey,
+      containerId,
+      dataLength: data?.length
+    });
+    
+    const plotContainer = document.getElementById(containerId);
+    if (!plotContainer) {
+      console.warn('Plot container not found:', containerId);
+      return;
+    }
+
+    try {
+      console.log(`Creating Linear Regression Manhattan plot for ${testKey} with ${data.length} data points`);
+      
+      if (!data || data.length === 0) {
+        console.error('No data available for linear regression plotting');
+        return;
+      }
+
+      // Use the dedicated linear regression Manhattan plot from PlotlyService
+      this.plotlyService.createLinearRegressionManhattanPlot(
+        plotContainer,
+        data,
+        {
+          title: containerId.includes('no-influential') 
+            ? `Linear Regression Manhattan Plot (No Influentials) - ${testKey}`
+            : `Linear Regression Manhattan Plot - ${testKey}`,
+          xaxis: 'Variables',
+          yaxis: '-log10(p-value)',
+          significanceLine: true,
+          significanceThreshold: -Math.log10(0.05)
+        }
+      );
+    } catch (error) {
+      console.error('Error creating linear regression manhattan plot:', error);
+      plotContainer.innerHTML = `
+        <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444; text-align: center;">
+          <div>
+            <p>Errore nella creazione del linear regression manhattan plot.</p>
+            <p>Verifica che i dati contengano valori validi per variable e p-value.</p>
+          </div>
+        </div>
+      `;
+    }
   }
 
   private createManhattanPlot(testKey: string, data: any[], containerId: string) {
@@ -1668,14 +1977,16 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       // Filter data to include only valid rows
       let invalidCount = 0;
       const validData = data.filter((row: any) => {
-        // Detect p-value column dynamically
-        const pValueFields = ['pValue', 'pval', 'p_value'];
-        const pValueField = pValueFields.find(field => row[field] !== undefined && row[field] !== null);
-        
-        if (!pValueField) return false;
+      // Detect p-value column dynamically
+      const pValueFields = ['pValue', 'pval', 'p_value', 'P.value', 'Pr(>|t|)', 'p.value', 'pvalue'];
+      const pValueField = pValueFields.find(field => row[field] !== undefined && row[field] !== null);        if (!pValueField) return false;
         
         const p = Number(row[pValueField]);
-        const hasVariable = row.variable && row.variable.toString().trim() !== '';
+        
+        // Detect variable column dynamically - check for common variable column names
+        const possibleVariableColumns = ['Variable', 'variable', 'gene', 'feature'];
+        const variableColumn = possibleVariableColumns.find(col => row[col] !== undefined && row[col] !== null);
+        const hasVariable = variableColumn && row[variableColumn] && row[variableColumn].toString().trim() !== '';
         
         const isValid = !isNaN(p) && p > 0 && hasVariable;
         if (!isValid) {
@@ -1683,7 +1994,8 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
           if (invalidCount <= 5) { // Log only first 5 invalid rows to avoid console spam
             console.warn('Invalid data point:', {
               row,
-              variable: `${row.variable} (${typeof row.variable})`,
+              variableColumn,
+              variable: variableColumn ? `${row[variableColumn]} (${typeof row[variableColumn]})` : 'undefined',
               pValueField,
               pValue: `${row[pValueField]} (${typeof row[pValueField]})`,
               parsedPValue: p,
@@ -1708,10 +2020,18 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       }
       
       // Detect the actual p-value column name
-      const pValueFields = ['pValue', 'pval', 'p_value'];
+      const pValueFields = ['pValue', 'pval', 'p_value', 'P.value', 'Pr(>|t|)', 'p.value', 'pvalue'];
       const pValueColumn = pValueFields.find(field => validData[0][field] !== undefined) || 'pValue';
       
-      console.log('Using p-value column:', pValueColumn);
+      // Detect the actual variable column name
+      const possibleVariableColumns = ['Variable', 'variable', 'gene', 'feature'];
+      const variableColumn = possibleVariableColumns.find(col => validData[0][col] !== undefined) || 'Variable';
+      
+      console.log('Using columns:', {
+        pValueColumn,
+        variableColumn,
+        availableColumns: Object.keys(validData[0] || {})
+      });
       console.log('Sample data point:', validData[0]);
 
       const test = this.results()?.results?.[testKey];
@@ -1728,7 +2048,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
           yaxis: '-log10(p-value)',
           significanceLine: true,
           significanceThreshold: -Math.log10(0.05),
-          variableColumn: 'Variable',
+          variableColumn: variableColumn,
           pValueColumn: pValueColumn
         }
       );
@@ -1746,17 +2066,38 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     }
   }
 
-  private createFeatureImportancePlot() {
+  private createFeatureImportancePlot(selectedTab: string) {
     const results = this.results()?.results;
-    if (!results || !this.selectedTab) return;
+    if (!results) return;
     
-    const test = results[this.selectedTab];
+    const test = results[selectedTab];
     if (!test?.data || test.data.length === 0) return;
     
-    const plotContainer = document.getElementById('feature-plot-' + this.selectedTab);
+    const plotContainer = document.getElementById('feature-plot-' + selectedTab);
     if (!plotContainer) {
-      console.warn('Feature plot container not found for tab:', this.selectedTab);
+      console.warn('Feature plot container not found for tab:', selectedTab);
       return;
+    }
+
+    // Auto-detect importance column
+    const firstRow = test.data[0];
+    let importanceColumn = 'importance';
+    if ('Importance' in firstRow) {
+      importanceColumn = 'Importance';
+    } else if ('importance' in firstRow) {
+      importanceColumn = 'importance';
+    }
+
+    // Auto-detect variable column
+    let variableColumn = 'Variable';
+    if ('variable' in firstRow) {
+      variableColumn = 'variable';
+    } else if ('Variable' in firstRow) {
+      variableColumn = 'Variable';
+    } else if ('feature' in firstRow) {
+      variableColumn = 'feature';
+    } else if ('gene' in firstRow) {
+      variableColumn = 'gene';
     }
 
     // Use the PlotlyService method
@@ -1764,10 +2105,10 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       plotContainer,
       test.data,
       {
-        title: `Feature Importance - ${test.testName || this.selectedTab}`,
+        title: `Feature Importance - ${test.testName || selectedTab}`,
         topN: 20,
-        variableColumn: 'Variable',
-        importanceColumn: 'importance',
+        variableColumn: variableColumn,
+        importanceColumn: importanceColumn,
         signColumn: 'sign'
       }
     ).catch(error => {
@@ -1781,6 +2122,265 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
         </div>
       `;
     });
+  }
+
+  private createBorutaBoxplot(selectedTab: string) {
+    const plotContainer = document.getElementById('boruta-boxplot-' + selectedTab);
+    if (!plotContainer) {
+      console.warn('Boruta boxplot container not found:', 'boruta-boxplot-' + selectedTab);
+      return;
+    }
+
+    const test = this.results()?.results?.[selectedTab];
+    if (!test?.data || !Array.isArray(test.data) || test.data.length === 0) {
+      console.error('No Boruta data available for plotting');
+      plotContainer.innerHTML = `
+        <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444; text-align: center;">
+          <div>
+            <p>No Boruta data available for plotting.</p>
+            <p style="font-size: 12px;">This plot shows feature importance distributions from Boruta analysis.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    console.log('Creating Boruta boxplot with data:', test.data);
+
+    // Prepare data for individual feature boxplots (typical Boruta format)
+    const borutaFeatures = test.data.map((item: any) => ({
+      variable: item.Variable || item.variable || item.feature,
+      meanImp: item.meanImp || item.mean_importance || item.importance || 0,
+      medianImp: item.medianImp || item.median_importance || 0,
+      minImp: item.minImp || item.min_importance || 0,
+      maxImp: item.maxImp || item.max_importance || 0,
+      normHits: item.normHits || item.norm_hits || 0,
+      decision: item.decision || item.Decision || 'Unknown',
+      // For real Boruta data, this would be the importance values across all runs
+      importanceHistory: item.importanceHistory || item.importance_history || []
+    }));
+
+    // Color mapping for Boruta decisions
+    const decisionColors = {
+      'Confirmed': '#16a085',    // Darker green
+      'Tentative': '#f39c12',    // Orange
+      'Rejected': '#e74c3c',     // Red
+      'Unknown': '#95a5a6'       // Gray
+    };
+
+    // Sort features: Confirmed first, then Tentative, then Rejected, within each group by importance
+    const sortedFeatures = borutaFeatures.sort((a: any, b: any) => {
+      const orderMap = { 'Confirmed': 0, 'Tentative': 1, 'Rejected': 2, 'Unknown': 3 };
+      const orderA = orderMap[a.decision as keyof typeof orderMap] ?? 3;
+      const orderB = orderMap[b.decision as keyof typeof orderMap] ?? 3;
+      
+      if (orderA !== orderB) return orderA - orderB;
+      return b.meanImp - a.meanImp; // Sort by importance within decision group
+    });
+
+    const traces: any[] = [];
+
+    // Create individual boxplot for each feature
+    sortedFeatures.forEach((feature: any, index: number) => {
+      const color = decisionColors[feature.decision as keyof typeof decisionColors] || '#95a5a6';
+      
+      // Create importance distribution data
+      let yValues: number[];
+      
+      if (feature.importanceHistory && feature.importanceHistory.length > 0) {
+        // Use actual importance history if available
+        yValues = feature.importanceHistory;
+      } else {
+        // Generate synthetic distribution from min/mean/max values for visualization
+        const q1 = feature.minImp + (feature.meanImp - feature.minImp) * 0.25;
+        const q3 = feature.meanImp + (feature.maxImp - feature.meanImp) * 0.25;
+        
+        yValues = [
+          feature.minImp,
+          q1,
+          feature.meanImp,
+          q3,
+          feature.maxImp,
+          // Add some variance around the mean
+          feature.meanImp * 0.9,
+          feature.meanImp * 1.1,
+          feature.meanImp * 0.95,
+          feature.meanImp * 1.05
+        ].filter(val => val !== undefined && val !== null && !isNaN(val));
+      }
+
+      traces.push({
+        y: yValues,
+        type: 'box',
+        name: feature.variable,
+        x: [feature.variable],
+        marker: { 
+          color: color,
+          opacity: 0.7,
+          line: { 
+            color: color, 
+            width: 2 
+          }
+        },
+        boxpoints: 'outliers',
+        jitter: 0.3,
+        pointpos: 0,
+        showlegend: false,
+        hovertemplate: `
+          <b>%{x}</b><br>
+          Decision: ${feature.decision}<br>
+          Mean Importance: ${feature.meanImp.toFixed(3)}<br>
+          Median: ${feature.medianImp.toFixed(3)}<br>
+          Norm Hits: ${feature.normHits}<br>
+          <extra></extra>
+        `
+      });
+    });
+
+    // Add shadow features if available
+    if (test.shadowStats) {
+      const shadowFeatures = ['shadowMin', 'shadowMean', 'shadowMax'];
+      shadowFeatures.forEach(shadowType => {
+        if (test.shadowStats[shadowType]) {
+          const shadowData = test.shadowStats[shadowType];
+          const shadowValues = shadowData.values || [shadowData.importance || shadowData.meanImp || 0];
+          
+          traces.push({
+            y: shadowValues,
+            type: 'box',
+            name: shadowType.replace('shadow', 'Shadow '),
+            x: [shadowType.replace('shadow', 'Shadow ')],
+            marker: { 
+              color: '#34495e',
+              opacity: 0.8,
+              line: { 
+                color: '#2c3e50', 
+                width: 2 
+              }
+            },
+            boxpoints: 'outliers',
+            showlegend: true,
+            hovertemplate: `
+              <b>%{x}</b><br>
+              Shadow Feature<br>
+              Importance: %{y}<br>
+              <extra></extra>
+            `
+          });
+        }
+      });
+    }
+
+    // Add legend entries for decision types
+    const uniqueDecisions = [...new Set(sortedFeatures.map((f: any) => f.decision))];
+    uniqueDecisions.forEach(decision => {
+      if (decision !== 'Unknown') {
+        traces.push({
+          x: [null],
+          y: [null],
+          type: 'scatter',
+          mode: 'markers',
+          marker: {
+            size: 12,
+            color: decisionColors[decision as keyof typeof decisionColors],
+            symbol: 'square',
+            line: {
+              color: 'white',
+              width: 1
+            }
+          },
+          name: `${decision} Features`,
+          showlegend: true,
+          hoverinfo: 'skip'
+        });
+      }
+    });
+
+    const layout = {
+      title: {
+        text: 'Boruta Feature Selection - Importance Distribution',
+        font: { 
+          size: 16, 
+          family: 'Arial, sans-serif',
+          color: '#2c3e50'
+        }
+      },
+      xaxis: {
+        title: {
+          text: 'Features',
+          font: { size: 12, color: '#2c3e50' }
+        },
+        tickfont: { size: 9, color: '#2c3e50' },
+        tickangle: -45,
+        automargin: true,
+        gridcolor: '#ecf0f1',
+        linecolor: '#bdc3c7'
+      },
+      yaxis: {
+        title: {
+          text: 'Variable Importance',
+          font: { size: 12, color: '#2c3e50' }
+        },
+        tickfont: { size: 11, color: '#2c3e50' },
+        gridcolor: '#ecf0f1',
+        linecolor: '#bdc3c7',
+        zeroline: true,
+        zerolinecolor: '#95a5a6'
+      },
+      showlegend: true,
+      legend: {
+        x: 1.02,
+        y: 1,
+        xanchor: 'left',
+        yanchor: 'top',
+        bgcolor: 'rgba(255, 255, 255, 0.9)',
+        bordercolor: '#bdc3c7',
+        borderwidth: 1,
+        font: { size: 10 }
+      },
+      margin: { l: 70, r: 140, t: 70, b: 120 },
+      paper_bgcolor: 'white',
+      plot_bgcolor: '#fafafa',
+      hovermode: 'closest',
+      boxgap: 0.5,
+      boxgroupgap: 0.1,
+      font: {
+        family: 'Arial, sans-serif',
+        size: 11,
+        color: '#2c3e50'
+      }
+    };
+
+    const config = {
+      responsive: true,
+      displayModeBar: true,
+      modeBarButtonsToRemove: [
+        'pan2d', 'select2d', 'lasso2d', 'resetScale2d', 'autoScale2d'
+      ],
+      displaylogo: false,
+      toImageButtonOptions: {
+        format: 'png',
+        filename: 'boruta_plot',
+        height: 500,
+        width: 800,
+        scale: 1
+      }
+    };
+
+    // Use PlotlyService to create the plot
+    this.plotlyService.createPlot(plotContainer, traces, layout, config)
+      .catch(error => {
+        console.error('Error creating Boruta boxplot:', error);
+        plotContainer.innerHTML = `
+          <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444; text-align: center;">
+            <div>
+              <p>Error creating Boruta plot.</p>
+              <p style="font-size: 12px;">${error.message}</p>
+              <p style="font-size: 10px; margin-top: 8px;">Please check console for details.</p>
+            </div>
+          </div>
+        `;
+      });
   }
 
   private createVolcanoPlotForTest(testKey: string, data: any[]) {
@@ -1893,12 +2493,28 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   viewResults() {
-    this.showResults.set(true);
-    // Initialize UI after showing results
-    setTimeout(() => {
-      this.initializeDefaultSelections();
-      this.createPlots();
-    }, 100);
+    const analysisId = this.analysisId();
+    if (!analysisId) {
+      console.error('[DIAGNOSTICS] No analysis ID available for viewing results');
+      return;
+    }
+    
+    console.log('[DIAGNOSTICS] User clicked view results, fetching results for:', analysisId);
+    this.loading.set(true);
+    this.error.set(null);
+    
+    // Fetch results using the same logic as recovery
+    this.apiService.getAnalysisResults(analysisId).subscribe({
+      next: (result: AnalysisResult) => {
+        console.log('[DIAGNOSTICS] Successfully loaded analysis results:', result);
+        this.handleLoadedResults(result, false); // false = don't start new analysis on missing data
+      },
+      error: (err: any) => {
+        console.error('[DIAGNOSTICS] Error loading analysis results:', err);
+        this.loading.set(false);
+        this.error.set(err.message || 'Errore nel caricamento dei risultati dell\'analisi');
+      }
+    });
   }
 
   downloadResults() {
@@ -1922,12 +2538,142 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       this.results.set(null);
       this.loading.set(false);
       this.error.set(null);
+      this.forceNewAnalysis.set(true); // Force new analysis instead of loading existing
       
+      // Reset the data flow service (this will properly handle session reset via SessionService)
+      this.dataFlowService.resetData();
+      
+      // Reset navigation workflow
       this.navigationService.resetWorkflow();
     }
   }
 
+  // Debug method to test multivariate displays - can be removed in production
+  private createTestMultivariateData(): AnalysisResult {
+    const sampleResults: AnalysisResult = {
+      id: 'test-multivariate',
+      timestamp: new Date(),
+      status: 'completed',
+      results: {
+        randomForest: {
+          testName: 'Random Forest',
+          ntree: 500,
+          chosen_mtry: 3,
+          best_metric: 0.1234,
+          data: [
+            { Variable: 'GENE1', importance: 0.85, rank: 1 },
+            { Variable: 'GENE2', importance: 0.72, rank: 2 },
+            { Variable: 'GENE3', importance: 0.68, rank: 3 }
+          ]
+        },
+        boruta: {
+          testName: 'Boruta Feature Selection',
+          ntree: 500,
+          iterations: 75,
+          maxRuns: 100,
+          data: [
+            { 
+              Variable: 'GENE1', 
+              decision: 'Confirmed', 
+              meanImp: 0.85, 
+              medianImp: 0.83, 
+              minImp: 0.75, 
+              maxImp: 0.95, 
+              normHits: 98,
+              importanceHistory: [0.85, 0.87, 0.83, 0.89, 0.82, 0.84, 0.86]
+            },
+            { 
+              Variable: 'GENE2', 
+              decision: 'Tentative', 
+              meanImp: 0.62, 
+              medianImp: 0.60, 
+              minImp: 0.45, 
+              maxImp: 0.78, 
+              normHits: 65,
+              importanceHistory: [0.62, 0.58, 0.65, 0.60, 0.67, 0.59, 0.64]
+            },
+            { 
+              Variable: 'GENE3', 
+              decision: 'Rejected', 
+              meanImp: 0.35, 
+              medianImp: 0.33, 
+              minImp: 0.25, 
+              maxImp: 0.45, 
+              normHits: 15,
+              importanceHistory: [0.35, 0.32, 0.38, 0.33, 0.36, 0.31, 0.37]
+            }
+          ],
+          shadowStats: {
+            shadowMin: { importance: 0.42, values: [0.40, 0.41, 0.43, 0.42, 0.44] },
+            shadowMean: { importance: 0.48, values: [0.46, 0.47, 0.49, 0.48, 0.50] },
+            shadowMax: { importance: 0.54, values: [0.52, 0.53, 0.55, 0.54, 0.56] }
+          }
+        },
+        ridge: {
+          testName: 'Ridge Regression',
+          chosen_lambda: 0.0045,
+          best_metric: 0.0876,
+          data: [
+            { Variable: 'GENE1', coefficient: 0.234, pValue: 0.001 },
+            { Variable: 'GENE2', coefficient: -0.156, pValue: 0.023 }
+          ]
+        },
+        lasso: {
+          testName: 'Lasso Regression',
+          chosen_lambda: 0.0032,
+          best_metric: 0.0892,
+          data: [
+            { Variable: 'GENE1', coefficient: 0.187, pValue: 0.002 },
+            { Variable: 'GENE4', coefficient: 0.098, pValue: 0.045 }
+          ]
+        },
+        elasticNet: {
+          testName: 'Elastic Net',
+          chosen_lambda: 0.0038,
+          chosen_alpha: 0.5,
+          best_metric: 0.0885,
+          data: [
+            { Variable: 'GENE1', coefficient: 0.201, pValue: 0.001 },
+            { Variable: 'GENE2', coefficient: -0.132, pValue: 0.018 }
+          ]
+        },
+        rfe: {
+          testName: 'Recursive Feature Elimination',
+          selected_size: 5,
+          best_metric: 0.0823,
+          optimization: [
+            { Variables: 2, RMSE: 0.125 },
+            { Variables: 3, RMSE: 0.098 },
+            { Variables: 5, RMSE: 0.082 },
+            { Variables: 8, RMSE: 0.089 },
+            { Variables: 10, RMSE: 0.095 }
+          ],
+          data: [
+            { Variable: 'GENE1', rank: 1, selected: true },
+            { Variable: 'GENE2', rank: 2, selected: true },
+            { Variable: 'GENE3', rank: 3, selected: true }
+          ]
+        }
+      }
+    };
+    
+    return sampleResults;
+  }
+
+  // Temporary test method - remove in production
+  testMultivariateDisplay() {
+    const testData = this.createTestMultivariateData();
+    this.results.set(testData);
+    this.showResults.set(true);
+    this.resultsReady.set(true);
+    this.loading.set(false);
+    console.log('[DEBUG] Test multivariate data loaded:', testData);
+  }
+
   ngOnDestroy() {
+    // Reset analysis active state to allow navigation when leaving results
+    this.navigationService.setAnalysisActiveState(false);
+    
     // Clean up Plotly plots
     if (this.distributionPlot?.nativeElement) {
       this.plotlyService.purge(this.distributionPlot.nativeElement);
@@ -1952,9 +2698,6 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   isNumber(val: any): boolean {
     return typeof val === 'number' && !isNaN(val);
   }
-
-  formatNumberCell(val: any): string {
-    if (typeof val === 'number' && !isNaN(val)) {
       return val.toFixed(3);
     }
     return val !== undefined && val !== null ? val.toString() : '';
@@ -1979,7 +2722,9 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
           hasTest: !!test,
           hasData,
           dataLength,
-          testStructure: test ? Object.keys(test) : 'no test'
+          testName: test?.testName,
+          dataType: typeof test?.data,
+          sampleDataPoint: test?.data?.[0]
         });
         return hasData;
       });
@@ -2036,31 +2781,250 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     return ['randomForest', 'boruta', 'rfe'].includes(testKey);
   }
 
-  getChosenLambda(testKey: string): string {
+  // Check if a multivariate method has importance data
+  hasImportanceData(testKey: string): boolean {
     const test = this.results()?.results?.[testKey];
-    if (test?.chosen_lambda !== undefined) {
-      return Number(test.chosen_lambda).toFixed(4);
+    if (!test?.data || !Array.isArray(test.data) || test.data.length === 0) {
+      return false;
+    }
+    
+    // Check if any row has an importance column (case-insensitive)
+    const firstRow = test.data[0];
+    if (!firstRow) return false;
+    
+    const keys = Object.keys(firstRow);
+    return keys.some(key => 
+      key.toLowerCase() === 'importance' || 
+      key === 'Importance' || 
+      key === 'importance'
+    );
+  }
+
+  // Regularization methods - Lambda and Alpha values
+  getChosenLambda(method: string): string {
+    const test = this.results()?.results?.[method];
+    if (!test) return 'N/A';
+    
+    if (test.chosen_lambda !== undefined && test.chosen_lambda !== null) {
+      const lambda = parseFloat(test.chosen_lambda);
+      return isNaN(lambda) ? 'N/A' : lambda.toExponential(3);
+    }
+    
+    return 'N/A';
+  }
+
+  getChosenAlpha(method: string): string {
+    const test = this.results()?.results?.[method];
+    if (!test || method !== 'elasticNet') return 'N/A';
+    
+    if (test.chosen_alpha !== undefined && test.chosen_alpha !== null) {
+      const alpha = parseFloat(test.chosen_alpha);
+      return isNaN(alpha) ? 'N/A' : alpha.toFixed(2);
+    }
+    
+    return 'N/A';
+  }
+
+  // Enhanced methods for analysis timing information
+  getAnalysisStartTime(): string {
+    const results = this.results();
+    if (results?.time_start) {
+      return new Date(results.time_start).toLocaleString();
     }
     return 'N/A';
   }
 
-  getChosenAlpha(testKey: string): string {
-    const test = this.results()?.results?.[testKey];
-    if (test?.chosen_alpha !== undefined) {
-      return Number(test.chosen_alpha).toFixed(4);
+  getAnalysisEndTime(): string {
+    const results = this.results();
+    if (results?.time_end) {
+      return new Date(results.time_end).toLocaleString();
     }
     return 'N/A';
   }
 
-  getBestMetric(testKey: string): string {
-    const test = this.results()?.results?.[testKey];
-    if (test?.best_metric !== undefined) {
-      return Number(test.best_metric).toFixed(4);
+  getAnalysisDuration(): string {
+    const results = this.results();
+    if (results?.time_start && results?.time_end) {
+      const start = new Date(results.time_start);
+      const end = new Date(results.time_end);
+      const diffMs = end.getTime() - start.getTime();
+      const diffSeconds = Math.round(diffMs / 1000);
+      
+      if (diffSeconds < 60) {
+        return `${diffSeconds} seconds`;
+      } else if (diffSeconds < 3600) {
+        const minutes = Math.floor(diffSeconds / 60);
+        const seconds = diffSeconds % 60;
+        return `${minutes}m ${seconds}s`;
+      } else {
+        const hours = Math.floor(diffSeconds / 3600);
+        const minutes = Math.floor((diffSeconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+      }
     }
     return 'N/A';
   }
 
-  // Methods for categorizing tests by type
+  // Enhanced method for FDR information (from R script analysis)
+  getFDRSignificantCount(method: string): string {
+    const test = this.results()?.results?.[method];
+    if (!test?.data || !Array.isArray(test.data)) return 'N/A';
+    
+    // Count items with FDR < 0.05
+    const fdrSignificant = test.data.filter((item: any) => {
+      const fdr = item.fdr || item.FDR || item.p_adj || item.padj;
+      return fdr !== undefined && fdr < 0.05;
+    }).length;
+    
+    return fdrSignificant.toString();
+  }
+
+  // Enhanced method for significance counts
+  getSignificantCount(method: string, threshold: number = 0.05): string {
+    const test = this.results()?.results?.[method];
+    if (!test?.data || !Array.isArray(test.data)) return 'N/A';
+    
+    const significantCount = test.data.filter((item: any) => {
+      const pValue = item.pValue || item.p_value || item.p || item['p.value'] || item['Pr(>|t|)'];
+      return pValue !== undefined && pValue < threshold;
+    }).length;
+    
+    return significantCount.toString();
+  }
+
+  // Enhanced method for Boruta specific information
+  getBorutaIterations(method: string): string {
+    const test = this.results()?.results?.[method];
+    if (!test) return 'N/A';
+    
+    // Check for iterations completed
+    if (test.iterations !== undefined) {
+      return test.iterations.toString();
+    }
+    
+    // Check for maxRuns as fallback
+    if (test.maxRuns !== undefined) {
+      return `${test.maxRuns} (max)`;
+    }
+    
+    return 'N/A';
+  }
+
+  getBorutaTentativeCount(method: string): string {
+    const test = this.results()?.results?.[method];
+    if (!test?.data || !Array.isArray(test.data)) return 'N/A';
+    
+    const tentativeCount = test.data.filter((item: any) => 
+      (item.decision === 'Tentative' || item.Decision === 'Tentative')
+    ).length;
+    
+    return tentativeCount.toString();
+  }
+
+  getBorutaRejectedCount(method: string): string {
+    const test = this.results()?.results?.[method];
+    if (!test?.data || !Array.isArray(test.data)) return 'N/A';
+    
+    const rejectedCount = test.data.filter((item: any) => 
+      (item.decision === 'Rejected' || item.Decision === 'Rejected')
+    ).length;
+    
+    return rejectedCount.toString();
+  }
+
+  // Enhanced method for Random Forest variable importance
+  getTopImportantVariables(method: string, count: number = 5): string {
+    const test = this.results()?.results?.[method];
+    if (!test?.data || !Array.isArray(test.data)) return 'N/A';
+    
+    // Sort by importance (multiple possible column names)
+    const sortedData = [...test.data].sort((a: any, b: any) => {
+      const importanceA = a.Importance || a.importance || a['%IncMSE'] || 0;
+      const importanceB = b.Importance || b.importance || b['%IncMSE'] || 0;
+      return importanceB - importanceA;
+    });
+    
+    const topVars = sortedData.slice(0, count).map((item: any) => 
+      item.Variable || item.variable || item.feature || 'Unknown'
+    );
+    
+    return topVars.join(', ');
+  }
+
+  // Enhanced method for correlation analysis summary
+  getStrongCorrelationCount(method: string, threshold: number = 0.5): string {
+    const test = this.results()?.results?.[method];
+    if (!test?.data || !Array.isArray(test.data)) return 'N/A';
+    
+    const strongCorrelations = test.data.filter((item: any) => {
+      const correlation = item.cor || item.correlation || item.r || item.rho;
+      return correlation !== undefined && Math.abs(correlation) > threshold;
+    }).length;
+    
+    return strongCorrelations.toString();
+  }
+
+  // Enhanced method for post-hoc test information
+  hasPostHocData(method: string): boolean {
+    const test = this.results()?.results?.[method];
+    return !!(test?.posthoc_data || test?.posthoc_results) && 
+           Array.isArray(test.posthoc_data || test.posthoc_results) && 
+           (test.posthoc_data || test.posthoc_results).length > 0;
+  }
+
+  getPostHocComparisonCount(method: string): string {
+    const test = this.results()?.results?.[method];
+    const posthocData = test?.posthoc_data || test?.posthoc_results;
+    
+    if (!posthocData || !Array.isArray(posthocData)) return 'N/A';
+    
+    return posthocData.length.toString();
+  }
+
+  // Enhanced method for feature selection summary
+  getSelectedVariablesList(method: string): string {
+    const test = this.results()?.results?.[method];
+    if (!test) return 'N/A';
+    
+    // For RFE and Boruta methods
+    if (test.selected_vars && Array.isArray(test.selected_vars)) {
+      return test.selected_vars.slice(0, 5).join(', ') + 
+             (test.selected_vars.length > 5 ? '...' : '');
+    }
+    
+    // For methods with data array, filter selected features
+    if (test.data && Array.isArray(test.data)) {
+      let selectedVars: string[] = [];
+      
+      if (method === 'boruta') {
+        selectedVars = test.data
+          .filter((item: any) => item.decision === 'Confirmed' || item.Decision === 'Confirmed')
+          .map((item: any) => item.Variable || item.variable)
+          .filter(Boolean);
+      } else if (method === 'rfe') {
+        selectedVars = test.data
+          .filter((item: any) => item.selected === true)
+          .map((item: any) => item.Variable || item.variable)
+          .filter(Boolean);
+      } else if (['ridge', 'lasso', 'elasticNet'].includes(method)) {
+        // For regularization methods, show variables with non-zero coefficients
+        selectedVars = test.data
+          .filter((item: any) => Math.abs(item.Coefficient || item.coefficient || 0) > 1e-6)
+          .sort((a: any, b: any) => Math.abs(b.Coefficient || b.coefficient || 0) - Math.abs(a.Coefficient || a.coefficient || 0))
+          .map((item: any) => item.Variable || item.variable)
+          .filter(Boolean)
+          .slice(0, 5);
+      }
+      
+      if (selectedVars.length > 0) {
+        return selectedVars.join(', ') + (selectedVars.length === 5 && test.data.length > 5 ? '...' : '');
+      }
+    }
+    
+    return 'N/A';
+  }
+
+  // Methods for categorizing tests by type (moved here to fix compilation errors)
   getBivariateTests(): string[] {
     const testNames = this.getTestNames();
     console.log('[DIAGNOSTICS] getBivariateTests - All available test names:', testNames);
@@ -2082,6 +3046,38 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     
     console.log('[DIAGNOSTICS] getBivariateTests - Filtered bivariate tests:', filteredTests);
     return filteredTests;
+  }
+
+  getMultivariateTests(): string[] {
+    const testNames = this.getTestNames();
+    console.log('[DIAGNOSTICS] getMultivariateTests - All available test names:', testNames);
+    
+    // Exact test keys from the API response for multivariate tests
+    const multivariateTestKeys = [
+      'ridge', 'lasso', 'elasticNet', 'elasticnet', 'randomForest', 'randomforest', 
+      'boruta', 'rfe', 'svm', 'neuralnetwork', 'xgboost'
+    ];
+    
+    console.log('[DIAGNOSTICS] getMultivariateTests - Looking for these multivariate patterns:', multivariateTestKeys);
+    
+    // Use exact matching since test names come directly from JSON keys
+    const filteredTests = testNames.filter(test => {
+      const isMatch = multivariateTestKeys.includes(test);
+      console.log(`[DIAGNOSTICS] getMultivariateTests - Test ${test}: matches multivariate pattern = ${isMatch}`);
+      return isMatch;
+    });
+    
+    console.log('[DIAGNOSTICS] getMultivariateTests - Filtered multivariate tests:', filteredTests);
+    return filteredTests;
+  }
+
+  // Test availability methods
+  hasAnyTests(): boolean {
+    return this.getBivariateTests().length > 0 || this.getMultivariateTests().length > 0;
+  }
+
+  getTotalTestCount(): number {
+    return this.getBivariateTests().length + this.getMultivariateTests().length;
   }
 
   // Test type classification methods
@@ -2116,9 +3112,45 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     if (test?.formula) {
       return test.formula;
     }
-    // If no formula is provided by the API, we can construct a generic one
+    
+    // If no formula is provided by the API, construct one using actual variable names
     if (this.isLinearRegressionTest(testKey)) {
-      return 'outcome ~ covariates + omic_variables';
+      const preprocessingOptions = this.dataFlowService.preprocessingOptions();
+      
+      if (preprocessingOptions?.columnClassification) {
+        const classification = preprocessingOptions.columnClassification;
+        
+        // Get actual variable names
+        const outcomeVar = classification.outcomeColumn || 'outcome';
+        const covariateVars = classification.covariateColumns || [];
+        const omicsVars = classification.omicsColumns || [];
+        
+        // Build formula components
+        const formulaParts: string[] = [];
+        
+        // Add covariates if present
+        if (covariateVars.length > 0) {
+          formulaParts.push(covariateVars.join(' + '));
+        }
+        
+        // Add indication of omics variables (since there could be many)
+        if (omicsVars.length > 0) {
+          if (omicsVars.length <= 3) {
+            // Show actual names if only a few
+            formulaParts.push(omicsVars.join(' + '));
+          } else {
+            // Show count if many
+            formulaParts.push(`omics_variables (${omicsVars.length} variables)`);
+          }
+        }
+        
+        // Construct final formula
+        const rightSide = formulaParts.length > 0 ? formulaParts.join(' + ') : 'intercept';
+        return `${outcomeVar} ~ ${rightSide}`;
+      } else {
+        // Fallback to generic formula
+        return 'outcome ~ covariates + omics_variables';
+      }
     }
     return null;
   }
@@ -2157,99 +3189,182 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       this.influentialRemovedColumns = Array.from(allKeys);
       console.log('[DIAGNOSTICS] updateInfluentialRemovedTable - Columns determined:', this.influentialRemovedColumns);
     }
-    
-    // Connect paginator and sort after view init (similar to main table)
-    setTimeout(() => {
-      if (this.influentialPaginator) {
-        console.log('[DIAGNOSTICS] updateInfluentialRemovedTable - Connecting paginator');
-        this.influentialRemovedDataSource.paginator = this.influentialPaginator;
-      } else {
-        console.log('[DIAGNOSTICS] updateInfluentialRemovedTable - No paginator available');
-      }
-      
-      if (this.influentialSort) {
-        console.log('[DIAGNOSTICS] updateInfluentialRemovedTable - Connecting sort');
-        this.influentialRemovedDataSource.sort = this.influentialSort;
-      } else {
-        console.log('[DIAGNOSTICS] updateInfluentialRemovedTable - No sort available');
-      }
-    });
   }
 
-  getMultivariateTests(): string[] {
-    const testNames = this.getTestNames();
-    console.log('[DIAGNOSTICS] getMultivariateTests - All available test names:', testNames);
+  // Enhanced method info that shows actual metric and method details
+  getMethodInfoLabel(testKey: string): string {
+    const analysisOptions = this.dataFlowService.analysisOptions();
     
-    // Exact test keys from the API response for multivariate tests
-    const multivariateTestKeys = [
-      'ridge', 'lasso', 'elasticNet', 'randomForest', 'boruta', 'rfe'
-    ];
-    
-    console.log('[DIAGNOSTICS] getMultivariateTests - Looking for these multivariate patterns:', multivariateTestKeys);
-    
-    const filteredTests = testNames.filter(test => {
-      const isMatch = multivariateTestKeys.includes(test);
-      console.log(`[DIAGNOSTICS] getMultivariateTests - Test ${test}: matches multivariate pattern = ${isMatch}`);
-      return isMatch;
-    });
-    
-    console.log('[DIAGNOSTICS] getMultivariateTests - Filtered multivariate tests:', filteredTests);
-    return filteredTests;
-  }
-
-  // Section management methods
-  selectSection(section: 'bivariate' | 'multivariate' | 'summary') {
-    if (this.selectedSection === section) return;
-    
-    // Clean up previous plots
-    this.cleanupPlots();
-    
-    this.selectedSection = section;
-    
-    // Reset tab selections when switching sections
-    if (section === 'bivariate') {
-      const bivariateTests = this.getBivariateTests();
-      this.selectedBivariateTab = bivariateTests.length > 0 ? bivariateTests[0] : null;
-      this.selectedTab = this.selectedBivariateTab;
-    } else if (section === 'multivariate') {
-      const multivariateTests = this.getMultivariateTests();
-      this.selectedMultivariateTab = multivariateTests.length > 0 ? multivariateTests[0] : null;
-      this.selectedTab = this.selectedMultivariateTab;
-    } else {
-      this.selectedTab = null;
+    if (['ridge', 'lasso', 'elasticNet'].includes(testKey)) {
+      const methodConfig = analysisOptions?.multivariateAnalysis?.[testKey as keyof typeof analysisOptions.multivariateAnalysis];
+      if (methodConfig && 'metric' in methodConfig && 'lambdaRule' in methodConfig) {
+        const metric = methodConfig.metric === 'rmse' ? 'RMSE' : 'RÂ²';
+        const rule = methodConfig.lambdaRule === 'min' ? 'Min' : '1SE';
+        return `${metric} (${rule})`;
+      }
+    } else if (testKey === 'randomForest') {
+      return 'RMSE Migliore';
+    } else if (testKey === 'boruta') {
+      return 'Iterazioni Completate';
+    } else if (testKey === 'rfe') {
+      const methodConfig = analysisOptions?.multivariateAnalysis?.rfe;
+      if (methodConfig?.metric) {
+        return methodConfig.metric === 'rmse' ? 'RMSE Migliore' : 'RÂ² Migliore';
+      }
     }
     
-    if (this.selectedTab) {
-      this.updateTableForCurrentTab();
-      this.cdr.detectChanges();
-      setTimeout(() => this.createPlots(), 100);
+    return 'Metrica Migliore';
+  }
+
+  getMethodInfoValue(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    
+    if (testKey === 'boruta') {
+      // For Boruta, show the number of iterations completed
+      if (test?.iterations !== undefined) {
+        return test.iterations.toString();
+      } else if (test?.maxRuns !== undefined) {
+        return test.maxRuns.toString();
+      }
+      return 'N/A';
     }
+    
+    // For other methods, show the best metric value
+    if (test?.best_metric !== undefined) {
+      return Number(test.best_metric).toFixed(4);
+    }
+    return 'N/A';
   }
 
-  selectBivariateTab(tabName: string) {
-    this.selectedBivariateTab = tabName;
-    this.selectTab(tabName);
+  // Random Forest specific methods
+  getRandomForestTrees(testKey: string): string {
+    console.log(`[DEBUG] getRandomForestTrees called for testKey: ${testKey}`);
+    
+    const analysisOptions = this.dataFlowService.analysisOptions();
+    console.log('[DEBUG] analysisOptions:', analysisOptions);
+    
+    const rfConfig = analysisOptions?.multivariateAnalysis?.randomForest;
+    console.log('[DEBUG] randomForest config:', rfConfig);
+    
+    if (rfConfig?.ntree) {
+      console.log(`[DEBUG] Found ntree in config: ${rfConfig.ntree}`);
+      return rfConfig.ntree.toString();
+    }
+    
+    // Also try to get from results data if available
+    const test = this.results()?.results?.[testKey];
+    console.log(`[DEBUG] Test data for ${testKey}:`, test);
+    
+    if (test?.ntree !== undefined) {
+      console.log(`[DEBUG] Found ntree in test data: ${test.ntree}`);
+      return test.ntree.toString();
+    }
+    
+    // Try alternative property names
+    if (test?.n_trees !== undefined) {
+      console.log(`[DEBUG] Found n_trees in test data: ${test.n_trees}`);
+      return test.n_trees.toString();
+    }
+    
+    if (test?.numTrees !== undefined) {
+      console.log(`[DEBUG] Found numTrees in test data: ${test.numTrees}`);
+      return test.numTrees.toString();
+    }
+    
+    console.log(`[DEBUG] No tree count found for ${testKey}, returning N/A`);
+    return 'N/A';
   }
 
-  selectMultivariateTab(tabName: string) {
-    this.selectedMultivariateTab = tabName;
-    this.selectTab(tabName);
+  getRandomForestMtry(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    if (test?.chosen_mtry !== undefined) {
+      return test.chosen_mtry.toString();
+    }
+    return 'N/A';
   }
 
-  private cleanupPlots() {
-    // Clean up all existing plots when switching sections
-    const allTestNames = this.getTestNames();
-    allTestNames.forEach(testName => {
-      const plotContainer = document.getElementById('manhattan-plot-' + testName);
-      if (plotContainer) {
-        this.plotlyService.purge(plotContainer);
+  // Boruta specific methods
+  getBorutaConfirmedFeatures(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    if (test?.data && Array.isArray(test.data)) {
+      const confirmedCount = test.data.filter((feature: any) => 
+        feature.decision === 'Confirmed'
+      ).length;
+      return confirmedCount.toString();
+    }
+    return 'N/A';
+  }
+
+  getBorutaMtry(testKey: string): string {
+    const analysisOptions = this.dataFlowService.analysisOptions();
+    const borutaConfig = analysisOptions?.multivariateAnalysis?.boruta;
+    
+    if (borutaConfig?.mtrySelection === 'manual' && borutaConfig.mtryValue) {
+      return borutaConfig.mtryValue.toString();
+    } else if (borutaConfig?.mtrySelection === 'automatic') {
+      // Calculate automatic mtry based on R formula: max(floor(p/3), 1)
+      const test = this.results()?.results?.[testKey];
+      if (test?.data && Array.isArray(test.data)) {
+        const numFeatures = test.data.length;
+        const autoMtry = Math.max(Math.floor(numFeatures / 3), 1);
+        return `${autoMtry} (auto)`;
       }
-      
-      // Also clean up influential-removed plots for linear regression
-      const influentialPlotContainer = document.getElementById('manhattan-plot-no-influential-' + testName);
-      if (influentialPlotContainer) {
-        this.plotlyService.purge(influentialPlotContainer);
-      }
-    });
+    }
+    return 'N/A';
+  }
+
+  getBorutaTrees(testKey: string): string {
+    console.log(`[DEBUG] getBorutaTrees called for testKey: ${testKey}`);
+    
+    const analysisOptions = this.dataFlowService.analysisOptions();
+    const borutaConfig = analysisOptions?.multivariateAnalysis?.boruta;
+    console.log('[DEBUG] boruta config:', borutaConfig);
+    
+    if (borutaConfig?.ntree) {
+      console.log(`[DEBUG] Found ntree in boruta config: ${borutaConfig.ntree}`);
+      return borutaConfig.ntree.toString();
+    }
+    
+    // Also try to get from results data if available
+    const test = this.results()?.results?.[testKey];
+    console.log(`[DEBUG] Boruta test data for ${testKey}:`, test);
+    
+    if (test?.ntree !== undefined) {
+      console.log(`[DEBUG] Found ntree in boruta test data: ${test.ntree}`);
+      return test.ntree.toString();
+    }
+    
+    // Try alternative property names
+    if (test?.n_trees !== undefined) {
+      console.log(`[DEBUG] Found n_trees in boruta test data: ${test.n_trees}`);
+      return test.n_trees.toString();
+    }
+    
+    if (test?.numTrees !== undefined) {
+      console.log(`[DEBUG] Found numTrees in boruta test data: ${test.numTrees}`);
+      return test.numTrees.toString();
+    }
+    
+    console.log(`[DEBUG] No tree count found for boruta ${testKey}, returning N/A`);
+    return 'N/A';
+  }
+
+  // RFE specific methods
+  getRFESubsetSizesTested(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    if (test?.optimization && Array.isArray(test.optimization)) {
+      const sizes = test.optimization.map((row: any) => row.Variables).sort((a: number, b: number) => a - b);
+      const uniqueSizes = [...new Set(sizes)];
+      return uniqueSizes.join(', ');
+    }
+    return 'N/A';
+  }
+
+  getRFEOptimalSize(testKey: string): string {
+    const test = this.results()?.results?.[testKey];
+    if (test?.selected_size !== undefined) {
+      return test.selected_size.toString();
+    }
+    return 'N/A';
   }
 }

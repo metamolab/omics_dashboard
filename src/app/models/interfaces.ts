@@ -122,6 +122,9 @@ export interface AnalysisResult {
   results?: any;
   error?: string;
   timestamp: Date;
+  // Additional timing information from R analysis
+  time_start?: string | Date;
+  time_end?: string | Date;
 }
 
 export interface NavItem {

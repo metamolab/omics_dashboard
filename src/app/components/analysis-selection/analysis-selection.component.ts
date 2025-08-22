@@ -6,6 +6,7 @@ import { DataFlowService } from '../../services/data-flow.service';
 import { NavigationService } from '../../services/navigation.service';
 import { FileParserService } from '../../services/file-parser.service';
 import { PlotlyService } from '../../services/plotly.service';
+import { SessionService } from '../../services/session.service';
 import { AnalysisOptions, FilePreview } from '../../models/interfaces';
 
 @Component({
@@ -2136,7 +2137,8 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     private dataFlowService: DataFlowService,
     private navigationService: NavigationService,
     private fileParserService: FileParserService,
-    private plotlyService: PlotlyService
+    private plotlyService: PlotlyService,
+    private sessionService: SessionService
   ) {}
 
   async ngOnInit() {
@@ -2588,10 +2590,16 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
            this.options.multivariateAnalysis.lasso.enabled || 
            this.options.multivariateAnalysis.elasticNet.enabled ||
            this.options.multivariateAnalysis.randomForest.enabled ||
-           this.options.multivariateAnalysis.boruta.enabled;
+           this.options.multivariateAnalysis.boruta.enabled ||
+           this.options.multivariateAnalysis.rfe.enabled;
   }
 
   isValid(): boolean {
+    // Check for RFE validation errors if RFE is enabled
+    if (this.options.multivariateAnalysis.rfe.enabled && this.rfeSubsetSizeError) {
+      return false;
+    }
+
     // For classification analysis, only multivariate methods are needed
     if (this.isClassification) {
       return this.hasMultivariateMethodSelected();
@@ -2633,9 +2641,15 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
       test => this.bivariateTests.includes(test)
     );
 
-    // Get sessionId and userId from preprocessing options to ensure consistency
-    const sessionId = this.preprocessingInfo?.sessionId || window.sessionStorage.getItem('sessionId') || crypto.randomUUID();
-    const userId = this.preprocessingInfo?.userId || window.sessionStorage.getItem('userId') || 'MasterTest';
+    // Get sessionId and userId using the centralized session service
+    const sessionId = this.sessionService.getSessionId();
+    const userId = this.sessionService.getUserId();
+    
+    console.log('[ANALYSIS_SELECTION] Using session service for analysis options:', {
+      sessionId,
+      userId,
+      sessionInfo: this.sessionService.getSessionInfo()
+    });
     
     // Propagate both sessionId and userId in options
     this.dataFlowService.setAnalysisOptions({ 

@@ -4,15 +4,21 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DataFlowService } from '../../services/data-flow.service';
 import { NavigationService } from '../../services/navigation.service';
+import { ApiService } from '../../services/api.service';
+import { SessionService } from '../../services/session.service';
 import { FileData, FilePreview } from '../../models/interfaces';
 
 // Define interfaces for remote files and preprocessing options
 interface RemoteFile {
   id: string;
   name: string;
+  originalName: string;
   size: number;
   lastModified: Date;
   path: string;
+  sessionId: string;
+  fileType: 'original' | 'processed' | 'analysis';
+  description: string;
 }
 
 interface RemotePreprocessingOptions {
@@ -62,7 +68,7 @@ interface PreviousAnalysis {
             <div class="source-option" (click)="selectDataSource('remote')">
               <div class="option-icon">🗂️</div>
               <h3>Seleziona File Esistente</h3>
-              <p>Scegli un file già presente nel repository remoto</p>
+              <p>Scegli un file originale da una sessione precedente</p>
             </div>
 
             <!-- Option 3: Recover previous analysis -->
@@ -142,7 +148,7 @@ interface PreviousAnalysis {
             @if (isLoadingRemoteFiles()) {
               <div class="loading-state">
                 <div class="spinner"></div>
-                <p>Caricamento file remoti...</p>
+                <p>Caricamento file originali dalle sessioni utente...</p>
               </div>
             } @else if (remoteFilesError()) {
               <div class="error-state">
@@ -153,13 +159,14 @@ interface PreviousAnalysis {
             } @else {
               <div class="file-browser">
                 <div class="browser-header">
-                  <h3>File Disponibili</h3>
+                  <h3>File Originali delle Sessioni Utente</h3>
                   <button class="refresh-btn" (click)="loadRemoteFiles()">🔄 Aggiorna</button>
                 </div>
                 
                 @if (remoteFiles().length === 0) {
                   <div class="empty-state">
-                    <p>Nessun file trovato nel repository remoto</p>
+                    <p>Nessun file originale trovato nelle sessioni utente</p>
+                    <p class="empty-subtitle">I file originali delle sessioni precedenti appariranno qui</p>
                   </div>
                 } @else {
                   <div class="file-list">
@@ -167,10 +174,19 @@ interface PreviousAnalysis {
                       <div class="remote-file-item" 
                            [class.selected]="selectedRemoteFile()?.id === file.id"
                            (click)="selectRemoteFile(file)">
-                        <div class="file-icon">📄</div>
+                        <div class="file-icon">
+                          <span>📄</span>
+                        </div>
                         <div class="file-details">
-                          <span class="file-name">{{ file.name }}</span>
-                          <span class="file-meta">{{ formatFileSize(file.size) }} • {{ formatDate(file.lastModified) }}</span>
+                          <div class="file-info-header">
+                            <span class="file-name">{{ file.name }}</span>
+                          </div>
+                          <span class="file-description">{{ file.description }}</span>
+                          <span class="file-meta">
+                            {{ formatFileSize(file.size) }} • 
+                            {{ formatDate(file.lastModified) }} • 
+                            Sessione: {{ file.sessionId }}
+                          </span>
                         </div>
                         @if (selectedRemoteFile()?.id === file.id) {
                           <div class="selected-indicator">✓</div>
@@ -1345,7 +1361,29 @@ interface PreviousAnalysis {
     .file-details {
       flex-grow: 1;
       display: flex;
-      gap: 2px;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .file-info-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: space-between;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: #0f172a;
+      font-size: 15px;
+      flex-grow: 1;
+    }
+
+    .file-description {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.3;
+      font-style: italic;
     }
 
     .file-meta {
@@ -1718,7 +1756,9 @@ export class FileUploadComponent implements OnInit {
   constructor(
     private router: Router,
     private dataFlowService: DataFlowService,
-    private navigationService: NavigationService
+    private navigationService: NavigationService,
+    private apiService: ApiService,
+    private sessionService: SessionService
   ) {}
 
   ngOnInit() {
@@ -1786,42 +1826,38 @@ export class FileUploadComponent implements OnInit {
     this.remoteFilesError.set(null);
     
     try {
-      // TODO: Replace with actual API call
-      // const files = await this.apiService.getRemoteFiles();
+      console.log('[UPLOAD] Loading session files from API...');
       
-      // Mock data for now
-      const mockFiles: RemoteFile[] = [
-        {
-          id: '1',
-          name: 'dataset_1.csv',
-          size: 1024000,
-          lastModified: new Date('2024-01-15'),
-          path: '/remote/dataset_1.csv'
+      this.apiService.getSessionFiles().subscribe({
+        next: (files: any[]) => {
+          console.log('[UPLOAD] Loaded session files:', files);
+          
+          // Transform API response to RemoteFile format
+          const transformedFiles: RemoteFile[] = files.map(file => ({
+            id: file.id,
+            name: file.name,
+            originalName: file.originalName,
+            size: file.size,
+            lastModified: new Date(file.lastModified),
+            path: file.path,
+            sessionId: file.sessionId,
+            fileType: file.fileType,
+            description: file.description
+          }));
+          
+          this.remoteFiles.set(transformedFiles);
+          this.isLoadingRemoteFiles.set(false);
         },
-        {
-          id: '2', 
-          name: 'experiment_data.xlsx',
-          size: 2048000,
-          lastModified: new Date('2024-01-20'),
-          path: '/remote/experiment_data.xlsx'
-        },
-        {
-          id: '3',
-          name: 'sample_analysis.json',
-          size: 512000,
-          lastModified: new Date('2024-01-25'),
-          path: '/remote/sample_analysis.json'
+        error: (error: any) => {
+          console.error('[UPLOAD] Error loading session files:', error);
+          this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file di sessione');
+          this.isLoadingRemoteFiles.set(false);
         }
-      ];
-      
-      // Simulate API delay
-      setTimeout(() => {
-        this.remoteFiles.set(mockFiles);
-        this.isLoadingRemoteFiles.set(false);
-      }, 1000);
+      });
       
     } catch (error: any) {
-      this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file remoti');
+      console.error('[UPLOAD] Exception in loadRemoteFiles:', error);
+      this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file di sessione');
       this.isLoadingRemoteFiles.set(false);
     }
   }
@@ -1829,18 +1865,29 @@ export class FileUploadComponent implements OnInit {
   selectRemoteFile(file: RemoteFile) {
     this.selectedRemoteFile.set(file);
     
+    console.log('[UPLOAD] Selected session file:', file);
+    
     // Create a FileData object for compatibility with existing flow
     const fileData: FileData = {
-      file: null as any, // Will be loaded from remote
+      file: null as any, // Will be loaded from session when needed
       fileName: file.name,
       fileSize: file.size,
       uploadDate: new Date(),
       remotePath: file.path,
-      isRemote: true
+      isRemote: true,
+      sessionId: file.sessionId,
+      userId: file.sessionId.split('_')[0] // Extract userId from sessionId format
     };
     
     this.dataFlowService.setFileData(fileData);
     this.navigationService.updateNavigationStatus();
+    
+    console.log('[UPLOAD] Set file data for session file:', {
+      fileName: fileData.fileName,
+      sessionId: fileData.sessionId,
+      userId: fileData.userId,
+      fileType: file.fileType
+    });
   }
 
   // Preprocessing options methods
@@ -1849,45 +1896,65 @@ export class FileUploadComponent implements OnInit {
     this.preprocessingOptionsError.set(null);
     
     try {
-      // TODO: Replace with actual API call
-      // const options = await this.apiService.getPreprocessingOptions();
+      console.log('[UPLOAD] Loading preprocessing options from API...');
       
-      // Mock data for now
-      const mockOptions: RemotePreprocessingOptions[] = [
-        {
-          id: '1',
-          name: 'Standard Omics Preprocessing',
-          description: 'Normalizzazione log2, rimozione valori mancanti, scaling standard',
-          options: {
-            normalization: 'log2',
-            missingValues: 'remove',
-            scaling: 'standard'
-          },
-          createdDate: new Date('2024-01-10')
+      this.apiService.getPreprocessingOptions().subscribe({
+        next: (options: any[]) => {
+          console.log('[UPLOAD] Loaded preprocessing options:', options);
+          
+          // Transform API response to RemotePreprocessingOptions format
+          const transformedOptions: RemotePreprocessingOptions[] = options.map(option => ({
+            id: option.sessionId || option.id,
+            name: option.name || `Preprocessing ${option.sessionId || option.id}`,
+            description: option.description || this.generatePreprocessingDescription(option.options || option),
+            options: option.options || option,
+            createdDate: option.createdDate ? new Date(option.createdDate) : new Date()
+          }));
+          
+          this.availablePreprocessingOptions.set(transformedOptions);
+          this.isLoadingPreprocessingOptions.set(false);
         },
-        {
-          id: '2',
-          name: 'Robust Preprocessing',
-          description: 'Normalizzazione robusta, imputazione mediana, scaling robusto',
-          options: {
-            normalization: 'robust',
-            missingValues: 'median_imputation',
-            scaling: 'robust'
-          },
-          createdDate: new Date('2024-01-18')
+        error: (error: any) => {
+          console.error('[UPLOAD] Error loading preprocessing options:', error);
+          this.preprocessingOptionsError.set(error.message || 'Errore nel caricamento delle opzioni di preprocessing');
+          this.isLoadingPreprocessingOptions.set(false);
         }
-      ];
-      
-      // Simulate API delay
-      setTimeout(() => {
-        this.availablePreprocessingOptions.set(mockOptions);
-        this.isLoadingPreprocessingOptions.set(false);
-      }, 800);
+      });
       
     } catch (error: any) {
+      console.error('[UPLOAD] Exception in loadPreprocessingOptions:', error);
       this.preprocessingOptionsError.set(error.message || 'Errore nel caricamento delle opzioni di preprocessing');
       this.isLoadingPreprocessingOptions.set(false);
     }
+  }
+
+  private generatePreprocessingDescription(options: any): string {
+    if (!options) {
+      return 'Opzioni di preprocessing personalizzate';
+    }
+    
+    const descriptions: string[] = [];
+    
+    // Handle different preprocessing option structures
+    if (options.transformation && options.transformation !== 'none') {
+      descriptions.push(`Trasformazione: ${options.transformation}`);
+    }
+    
+    if (options.fillMissingValues && options.fillMissingValues !== 'none') {
+      descriptions.push(`Valori mancanti: ${options.fillMissingValues}`);
+    }
+    
+    if (options.removeOutliers) {
+      descriptions.push(`Rimozione outlier: ${options.outlierMethod || 'abilitata'}`);
+    }
+    
+    if (options.removeNullValues) {
+      descriptions.push('Rimozione valori nulli');
+    }
+    
+    return descriptions.length > 0 
+      ? descriptions.join(', ') 
+      : 'Configurazione di preprocessing personalizzata';
   }
 
   selectPreprocessingOption(option: RemotePreprocessingOptions) {
@@ -1896,10 +1963,35 @@ export class FileUploadComponent implements OnInit {
 
   continueWithExistingPreprocessing() {
     if (this.selectedPreprocessingOption()) {
+      const selectedOption = this.selectedPreprocessingOption()!;
+      
+      console.log('[UPLOAD] Using existing preprocessing options:', selectedOption);
+      
+      // Generate new session credentials for this workflow
+      // The sessionID from the existing preprocessing file should NOT be reused
+      const currentUserId = this.sessionService.getUserId();
+      const newSessionId = this.sessionService.generateNewSession(); // Generate fresh session
+      
+      console.log('[UPLOAD] Generated new session for existing preprocessing:', {
+        originalSessionId: selectedOption.id,
+        newSessionId: newSessionId,
+        userId: currentUserId
+      });
+      
+      // Create preprocessing options with new session credentials
+      const preprocessingOptionsWithNewSession = {
+        ...selectedOption.options,
+        sessionId: newSessionId,
+        userId: currentUserId
+      };
+      
       // Set the preprocessing options in the data flow service
-      this.dataFlowService.setPreprocessingOptions(this.selectedPreprocessingOption()!.options);
-      // Skip preprocessing step and go directly to analysis selection
-      this.navigationService.navigateToStep('analysis');
+      this.dataFlowService.setPreprocessingOptions(preprocessingOptionsWithNewSession);
+      
+      console.log('[UPLOAD] Set preprocessing options with new session credentials - navigating to preprocessing component');
+      
+      // Navigate to preprocessing step so user can review and modify the recovered options
+      this.navigationService.navigateToStep('preprocessing');
     }
   }
 
@@ -1909,60 +2001,57 @@ export class FileUploadComponent implements OnInit {
     this.analysesError.set(null);
     
     try {
-      // TODO: Replace with actual API call
-      // const analyses = await this.apiService.getPreviousAnalyses();
-      
-      // Mock data for now
-      const mockAnalyses: PreviousAnalysis[] = [
-        {
-          analysisId: 'analysis_2024_001',
-          name: 'Proteomics Study - Control vs Treatment',
-          status: 'completed',
-          createdDate: new Date('2024-01-15T10:30:00'),
-          completedDate: new Date('2024-01-15T14:45:00'),
-          analysisType: 'Differential Expression',
-          datasetName: 'proteomics_control_treatment.csv',
-          description: 'Analisi differenziale proteomica tra controllo e trattamento'
+      this.apiService.getPreviousAnalyses().subscribe({
+        next: (analyses: any[]) => {
+          console.log('Loaded previous analyses:', analyses);
+          
+          // Transform API response to PreviousAnalysis format
+          const transformedAnalyses: PreviousAnalysis[] = analyses.map(analysis => ({
+            analysisId: analysis.analysisId || analysis.id,
+            name: analysis.name || `Analysis ${analysis.analysisId || analysis.id}`,
+            status: this.mapAnalysisStatus(analysis.status),
+            createdDate: analysis.createdDate ? new Date(analysis.createdDate) : new Date(),
+            completedDate: analysis.completedDate ? new Date(analysis.completedDate) : undefined,
+            analysisType: analysis.analysisType || analysis.type || 'Unknown',
+            datasetName: analysis.datasetName || analysis.dataset || 'Unknown dataset',
+            description: analysis.description || ''
+          }));
+          
+          this.previousAnalyses.set(transformedAnalyses);
+          this.isLoadingAnalyses.set(false);
         },
-        {
-          analysisId: 'analysis_2024_002',
-          name: 'Metabolomics Time Series',
-          status: 'running',
-          createdDate: new Date('2024-01-20T09:15:00'),
-          analysisType: 'Time Series Analysis',
-          datasetName: 'metabolomics_timeseries.xlsx',
-          description: 'Studio longitudinale del metaboloma'
-        },
-        {
-          analysisId: 'analysis_2024_003',
-          name: 'Multi-omics Integration',
-          status: 'pending',
-          createdDate: new Date('2024-01-25T16:20:00'),
-          analysisType: 'Multi-omics',
-          datasetName: 'multiomics_dataset.json',
-          description: 'Integrazione di dati proteomici e metabolomici'
-        },
-        {
-          analysisId: 'analysis_2024_004',
-          name: 'Biomarker Discovery',
-          status: 'failed',
-          createdDate: new Date('2024-01-28T11:00:00'),
-          analysisType: 'Feature Selection',
-          datasetName: 'biomarker_discovery.csv',
-          description: 'Identificazione di biomarcatori potenziali'
+        error: (error: any) => {
+          console.error('Error loading previous analyses:', error);
+          this.analysesError.set(error.message || 'Errore nel caricamento delle analisi precedenti');
+          this.isLoadingAnalyses.set(false);
         }
-      ];
-      
-      // Simulate API delay
-      setTimeout(() => {
-        this.previousAnalyses.set(mockAnalyses);
-        this.isLoadingAnalyses.set(false);
-      }, 1200);
+      });
       
     } catch (error: any) {
+      console.error('Error in loadPreviousAnalyses:', error);
       this.analysesError.set(error.message || 'Errore nel caricamento delle analisi precedenti');
       this.isLoadingAnalyses.set(false);
     }
+  }
+  
+  private mapAnalysisStatus(status: string): 'completed' | 'running' | 'pending' | 'failed' {
+    const statusMap: { [key: string]: 'completed' | 'running' | 'pending' | 'failed' } = {
+      'completed': 'completed',
+      'finished': 'completed',
+      'done': 'completed',
+      'success': 'completed',
+      'running': 'running',
+      'processing': 'running',
+      'in_progress': 'running',
+      'pending': 'pending',
+      'waiting': 'pending',
+      'queued': 'pending',
+      'failed': 'failed',
+      'error': 'failed',
+      'cancelled': 'failed'
+    };
+    
+    return statusMap[status.toLowerCase()] || 'pending';
   }
 
   selectAnalysis(analysis: PreviousAnalysis) {
@@ -1973,17 +2062,39 @@ export class FileUploadComponent implements OnInit {
     if (this.selectedAnalysis()) {
       const analysis = this.selectedAnalysis()!;
       
-      // Set the analysis ID in the data flow service
+      console.log('Recovering analysis:', analysis);
+      
+      // Set the analysis ID in the data flow service and enable recovery mode
       this.dataFlowService.setAnalysisId(analysis.analysisId);
+      this.dataFlowService.setRecoveryMode(true);
       
       if (analysis.status === 'completed') {
-        // Navigate directly to results
+        // For completed analyses, preload the results and navigate to results
+        console.log('Loading results for completed analysis:', analysis.analysisId);
+        
+        // Optionally load and cache the results immediately
+        this.apiService.getAnalysisResults(analysis.analysisId).subscribe({
+          next: (result) => {
+            console.log('Successfully loaded analysis results:', result);
+            // Navigate to results - the results component will pick up the analysisId
+            // from the data flow service and load the results automatically
+            this.navigationService.navigateToStep('results');
+          },
+          error: (error) => {
+            console.error('Error loading analysis results:', error);
+            // Still navigate to results - let the results component handle the error
+            this.navigationService.navigateToStep('results');
+          }
+        });
+      } else if (analysis.status === 'running' || analysis.status === 'pending') {
+        // For running/pending analyses, navigate to results for monitoring
+        console.log('Monitoring running/pending analysis:', analysis.analysisId);
         this.navigationService.navigateToStep('results');
-      } else {
-        // Navigate to appropriate step based on analysis status
-        // For running/pending analyses, we might want to go to a monitoring view
-        // or continue the analysis workflow
-        this.navigationService.navigateToStep('analysis');
+      } else if (analysis.status === 'failed') {
+        // For failed analyses, we could navigate to results to show the error
+        // or allow user to restart the analysis
+        console.log('Failed analysis selected:', analysis.analysisId);
+        this.navigationService.navigateToStep('results');
       }
     }
   }

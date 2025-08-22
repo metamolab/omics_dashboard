@@ -96,7 +96,7 @@ do_student_t_test <- function(data, group_var, groups, omics_vars) {
       tidy = map(t_test, broom::tidy)
     ) %>%
     unnest(tidy) %>%
-    select(Variable, estimate, estimate1, estimate2, statistic, p.value, parameter, conf.low, conf.high, method) %>% 
+    select(Variable, estimate, estimate1, estimate2, statistic, p.value, parameter, conf.low, conf.high) %>% 
     rename("pValue" = "p.value")
   
   results$fdr <- p.adjust(results$pValue, method = "fdr")
@@ -129,7 +129,7 @@ do_welch_t_test <- function(data, group_var, groups, omics_vars) {
       tidy = map(t_test, broom::tidy)
     ) %>%
     unnest(tidy) %>%
-    select(Variable, estimate, estimate1, estimate2, statistic, p.value, parameter, conf.low, conf.high, method) %>% 
+    select(Variable, estimate, estimate1, estimate2, statistic, p.value, parameter, conf.low, conf.high) %>% 
     rename("pValue" = "p.value") 
   results$fdr <- p.adjust(results$pValue, method = "fdr")
   
@@ -166,7 +166,7 @@ do_wilcoxon_test <- function(data, group_var, groups, omics_vars) {
       })
     ) %>%
     unnest(tidy) %>%
-    select(Variable, statistic, p.value, method, alternative, median_diff) %>% 
+    select(Variable, statistic, p.value, alternative, median_diff) %>% 
     rename("pValue" = "p.value", "estimate" = "median_diff") 
   results$fdr <- p.adjust(results$pValue, method = "fdr")
   
@@ -302,11 +302,15 @@ do_pearson_test <- function(data, outcome, omics_vars) {
     pearson_results <- bind_rows(pearson_results, results)
   }
   
+  pearson_results$fdr <- p.adjust(pearson_results$pValue, method = "fdr")
+
   # Log results summary
   sig_count <- sum(pearson_results$pValue < 0.05, na.rm = TRUE)
+  fdr_sig_count <- sum(pearson_results$fdr < 0.05, na.rm = TRUE)
   strong_corr <- sum(abs(pearson_results$cor) > 0.5, na.rm = TRUE)
   write_log(paste("Pearson correlation completed:", nrow(pearson_results), "tests performed"))
   write_log(paste("Significant correlations (p < 0.05):", sig_count))
+  write_log(paste("FDR significant results (FDR < 0.05):", fdr_sig_count))
   write_log(paste("Strong correlations (|r| > 0.5):", strong_corr))
   
   log_function("do_pearson_test", "EXIT")
@@ -328,12 +332,16 @@ do_spearman_test <- function(data, outcome, omics_vars) {
       dplyr::rename("pValue" = "p")
     spearman_results <- bind_rows(spearman_results, results)
   }
-  
+
+  spearman_results$fdr <- p.adjust(spearman_results$pValue, method = "fdr")
+
   # Log results summary
   sig_count <- sum(spearman_results$pValue < 0.05, na.rm = TRUE)
+  fdr_sig_count <- sum(spearman_results$fdr < 0.05, na.rm = TRUE)
   strong_corr <- sum(abs(spearman_results$cor) > 0.5, na.rm = TRUE)
   write_log(paste("Spearman correlation completed:", nrow(spearman_results), "tests performed"))
   write_log(paste("Significant correlations (p < 0.05):", sig_count))
+  write_log(paste("FDR significant results (FDR < 0.05):", fdr_sig_count))
   write_log(paste("Strong correlations (|rho| > 0.5):", strong_corr))
   
   log_function("do_spearman_test", "EXIT")
@@ -379,15 +387,18 @@ do_lr <- function(data, outcome, covariates, omics_vars, remove_infl) {
     }
   }
   
+
+  
   # Log results summary
   sig_count <- sum(results$p.value < 0.05, na.rm = TRUE)
   write_log(paste("Linear regression completed:", nrow(results), "models fitted"))
   write_log(paste("Significant coefficients (p < 0.05):", sig_count))
-  
+
   if(remove_infl) {
     write_log(paste("Total influential observations removed:", total_influential))
     sig_count_clean <- sum(remove_infl_results$p.value < 0.05, na.rm = TRUE)
     write_log(paste("Significant coefficients after removing influential obs:", sig_count_clean))
+
   }
   
   log_function("do_lr", "EXIT")
@@ -399,9 +410,9 @@ prepare_mv_dataset <- function(data, id_column, group_column, covariates, remove
   
   write_log(paste("Preparing multivariate dataset from", nrow(data), "×", ncol(data), "input"))
   write_log(paste("Removing columns:", id_column, ",", group_column))
-  
-  dt <- data %>% dplyr::select(-c(!!sym(id_column), !!sym(group_column)))
-  
+
+  dt <- data %>% dplyr::select(-any_of(c(id_column, group_column)))
+
   if(remove_cov == TRUE & !is.null(covariates)) {
     write_log(paste("Removing covariates:", paste(covariates, collapse = ", ")))
     dt <- dt %>% dplyr::select(!any_of(covariates))
@@ -803,7 +814,7 @@ do_rf <- function(data, outcome, my_ntree, mtry_opt, my_mtry) {
   
   log_function("do_rf", "EXIT")
   return(list("results" = importance, "chosen_mtry" = chosen_mtry, "best_metric" = chosen_metric, 
-              "mtry_tuning" = rf_caret$results))
+              "mtry_tuning" = rf_caret$results, "ntree" = my_ntree))
 }
 
 do_boruta <- function(data, outcome, my_ntree, max_runs, mtry_opt, my_mtry, rft) {
@@ -836,6 +847,10 @@ do_boruta <- function(data, outcome, my_ntree, max_runs, mtry_opt, my_mtry, rft)
   results <- attStats(boruta) %>% as_tibble(rownames = "Variable")
   selected_vars <- getSelectedAttributes(boruta) 
   
+  # Extract iteration information
+  iterations_completed <- boruta$timeTaken
+  max_runs_performed <- max_runs
+  
   # Log results summary
   confirmed <- sum(results$decision == "Confirmed", na.rm = TRUE)
   rejected <- sum(results$decision == "Rejected", na.rm = TRUE)
@@ -845,13 +860,15 @@ do_boruta <- function(data, outcome, my_ntree, max_runs, mtry_opt, my_mtry, rft)
   write_log(paste("Rejected features:", rejected))
   write_log(paste("Tentative features:", tentative))
   write_log(paste("Selected variables:", length(selected_vars)))
+  write_log(paste("Iterations completed:", length(boruta$timeTaken)))
   
   if(length(selected_vars) > 0) {
     write_log(paste("Top selected features:", paste(head(selected_vars, 5), collapse = ", ")))
   }
   
   log_function("do_boruta", "EXIT")
-  return(list("results" = results, "selected_vars" = selected_vars))
+  return(list("results" = results, "selected_vars" = selected_vars, 
+              "iterations" = length(boruta$timeTaken), "maxRuns" = max_runs))
 }
 
 do_rfe <- function(data, outcome, subset_selection, my_subset_size, metric) {
@@ -861,21 +878,123 @@ do_rfe <- function(data, outcome, subset_selection, my_subset_size, metric) {
   write_log(paste("Subset selection method:", subset_selection))
   write_log(paste("Metric for optimization:", metric))
   
-  form <- paste0(outcome, " ~ .")
+  # ENHANCED DIAGNOSTICS: Log input parameters
+  write_log(paste("Input data dimensions:", nrow(data), "rows x", ncol(data), "columns"))
+  write_log(paste("Outcome variable:", outcome))
+  write_log(paste("Original subset_selection:", subset_selection))
+  write_log(paste("Original my_subset_size type:", class(my_subset_size)))
+  write_log(paste("Original my_subset_size length:", length(my_subset_size)))
+  write_log(paste("Original my_subset_size values:", paste(my_subset_size, collapse = ", ")))
   
-  if(subset_selection == "automatic") {
-    my_subset_size <- exp(seq(log(5), log(ncol(data)-1), length.out = 10))
-    my_subset_size <- round(my_subset_size / 5) * 5
-    my_subset_size <- unique(my_subset_size)
-    write_log(paste("Using automatic subset sizes:", paste(my_subset_size, collapse = ", ")))
-  } else {
-    write_log(paste("Using custom subset sizes:", paste(my_subset_size, collapse = ", ")))
+  # Check if outcome exists in data
+  if (!outcome %in% names(data)) {
+    error_msg <- paste("Outcome variable", outcome, "not found in data. Available columns:", paste(names(data), collapse = ", "))
+    write_log(error_msg, "ERROR")
+    stop(error_msg)
   }
   
+  form <- paste0(outcome, " ~ .")
+  write_log(paste("Formula:", form))
+  
+  # ENHANCED DIAGNOSTICS: Validate and process subset sizes
+  if(subset_selection == "automatic") {
+    max_features <- ncol(data) - 1  # Exclude outcome column
+    write_log(paste("Maximum available features for automatic selection:", max_features))
+    
+    if (max_features < 5) {
+      write_log("Too few features for automatic subset selection, using all available features", "WARN")
+      my_subset_size <- max_features
+    } else {
+      my_subset_size <- exp(seq(log(5), log(max_features), length.out = 10))
+      my_subset_size <- round(my_subset_size / 5) * 5
+      my_subset_size <- unique(my_subset_size)
+      # Ensure we don't exceed available features
+      my_subset_size <- my_subset_size[my_subset_size <= max_features]
+      # Ensure at least one size
+      if (length(my_subset_size) == 0) {
+        my_subset_size <- min(5, max_features)
+      }
+    }
+    write_log(paste("Using automatic subset sizes:", paste(my_subset_size, collapse = ", ")))
+  } else {
+    # ENHANCED DIAGNOSTICS: Validate custom subset sizes
+    write_log("Processing custom subset sizes...")
+    
+    # Handle various input formats
+    if (is.null(my_subset_size)) {
+      write_log("Custom subset sizes is NULL, using automatic", "WARN")
+      subset_selection <- "automatic"
+      max_features <- ncol(data) - 1
+      my_subset_size <- min(5, max_features)
+    } else if (is.character(my_subset_size)) {
+      write_log("Converting custom subset sizes from character format")
+      my_subset_size <- as.numeric(trimws(strsplit(my_subset_size, ",")[[1]]))
+    } else if (is.list(my_subset_size)) {
+      write_log("Converting custom subset sizes from list format")
+      my_subset_size <- as.numeric(unlist(my_subset_size))
+    }
+    
+    # Remove NA values and ensure numeric
+    my_subset_size <- my_subset_size[!is.na(my_subset_size)]
+    my_subset_size <- as.integer(my_subset_size)
+    
+    # Validate ranges
+    max_features <- ncol(data) - 1
+    my_subset_size <- my_subset_size[my_subset_size > 0 & my_subset_size <= max_features]
+    
+    if (length(my_subset_size) == 0) {
+      write_log("No valid custom subset sizes found, using automatic", "WARN")
+      my_subset_size <- min(5, max_features)
+    }
+    
+    # Remove duplicates and sort
+    my_subset_size <- sort(unique(my_subset_size))
+    
+    write_log(paste("Final custom subset sizes:", paste(my_subset_size, collapse = ", ")))
+  }
+  
+  # ENHANCED DIAGNOSTICS: Validate metric
+  original_metric <- metric
   if(metric == "rmse") {
     metric <- "RMSE"
-  } else {
+  } else if(metric == "rsquared") {
     metric <- "Rsquared"
+  } else {
+    # Default to Rsquared if unknown metric
+    write_log(paste("Unknown metric:", original_metric, "defaulting to Rsquared"), "WARN")
+    metric <- "Rsquared"
+  }
+  write_log(paste("Final metric:", metric))
+  
+  # ENHANCED DIAGNOSTICS: Check data quality before RFE
+  outcome_values <- data[[outcome]]
+  write_log(paste("Outcome variable summary:"))
+  write_log(paste("  Class:", class(outcome_values)))
+  write_log(paste("  Length:", length(outcome_values)))
+  write_log(paste("  Unique values:", length(unique(outcome_values))))
+  write_log(paste("  Missing values:", sum(is.na(outcome_values))))
+  
+  if (is.factor(outcome_values) || is.character(outcome_values)) {
+    write_log(paste("  Levels:", paste(unique(outcome_values), collapse = ", ")))
+  } else {
+    write_log(paste("  Range:", min(outcome_values, na.rm = TRUE), "to", max(outcome_values, na.rm = TRUE)))
+  }
+  
+  # Check for constant or near-constant predictors
+  predictor_cols <- setdiff(names(data), outcome)
+  write_log(paste("Number of predictor variables:", length(predictor_cols)))
+  
+  constant_vars <- sapply(data[predictor_cols], function(x) {
+    if (is.numeric(x)) {
+      var(x, na.rm = TRUE) == 0 || is.na(var(x, na.rm = TRUE))
+    } else {
+      length(unique(x[!is.na(x)])) <= 1
+    }
+  })
+  
+  if (any(constant_vars)) {
+    constant_var_names <- names(constant_vars)[constant_vars]
+    write_log(paste("Warning: Constant variables detected:", paste(constant_var_names, collapse = ", ")), "WARN")
   }
   
   rfe_control <- rfeControl(functions = rfFuncs,
@@ -885,26 +1004,73 @@ do_rfe <- function(data, outcome, subset_selection, my_subset_size, metric) {
                             saveDetails = TRUE,
                             returnResamp = "all")
   
+  write_log(paste("RFE control settings:"))
+  write_log(paste("  Method: cv"))
+  write_log(paste("  Number of folds: 10"))
+  write_log(paste("  Functions: rfFuncs"))
+  
   set.seed(1234)
   write_log("Starting RFE cross-validation...")
-  rfe_results <- rfe(as.formula(form), data = data, 
-                     sizes = my_subset_size, metric = metric,
-                     rfeControl = rfe_control,
-                     preProcess = c("center", "scale", "nzv"))
+  write_log(paste("Testing subset sizes:", paste(my_subset_size, collapse = ", ")))
+  
+  # ENHANCED DIAGNOSTICS: Wrap RFE in try-catch
+  tryCatch({
+    rfe_results <- rfe(as.formula(form), data = data, 
+                       sizes = my_subset_size, metric = metric,
+                       rfeControl = rfe_control,
+                       preProcess = c("center", "scale", "nzv"))
+    
+    write_log("RFE execution completed successfully")
+  }, error = function(e) {
+    error_msg <- paste("RFE execution failed:", e$message)
+    write_log(error_msg, "ERROR")
+    write_log(paste("Error details:", toString(e)), "ERROR")
+    stop(error_msg)
+  })
+  
+  # ENHANCED DIAGNOSTICS: Validate results
+  if (is.null(rfe_results)) {
+    error_msg <- "RFE returned NULL results"
+    write_log(error_msg, "ERROR")
+    stop(error_msg)
+  }
   
   selected_vars <- rfe_results$optVariables
   selected_size <- rfe_results$optsize
-  best_metric <- rfe_results$results %>% dplyr::filter(Variables == selected_size) %>% pull(!!sym(metric))
-  optimization <- rfe_results$results
   
-  importance <- varImp(rfe_results$fit, scale = TRUE) %>% 
-    as_tibble(rownames = "Variable") %>% 
-    rename("importance" = "Overall")
+  write_log(paste("RFE results structure:"))
+  write_log(paste("  Optimal size:", selected_size))
+  write_log(paste("  Number of selected variables:", length(selected_vars)))
+  
+  if (is.null(selected_vars) || length(selected_vars) == 0) {
+    write_log("Warning: No variables selected by RFE", "WARN")
+    selected_vars <- character(0)
+    selected_size <- 0
+    best_metric <- NA
+    optimization <- data.frame()
+    importance <- data.frame(Variable = character(0), importance = numeric(0))
+  } else {
+    tryCatch({
+      best_metric <- rfe_results$results %>% dplyr::filter(Variables == selected_size) %>% pull(!!sym(metric))
+      optimization <- rfe_results$results
+      
+      importance <- varImp(rfe_results$fit, scale = TRUE) %>% 
+        as_tibble(rownames = "Variable") %>% 
+        rename("importance" = "Overall")
+      
+      write_log(paste("Best", metric, ":", round(best_metric, 4)))
+      
+    }, error = function(e) {
+      write_log(paste("Error extracting RFE results:", e$message), "ERROR")
+      best_metric <- NA
+      optimization <- data.frame()
+      importance <- data.frame(Variable = character(0), importance = numeric(0))
+    })
+  }
   
   # Log results summary
   write_log(paste("RFE completed"))
   write_log(paste("Optimal subset size:", selected_size))
-  write_log(paste("Best", metric, ":", round(best_metric, 4)))
   write_log(paste("Selected variables:", length(selected_vars)))
   
   if(length(selected_vars) > 0) {
@@ -991,6 +1157,19 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
   complete_results$id <- analysis_id
   complete_results$time_start <- Sys.time()
   
+  # Add dataset information and configuration details
+  complete_results$dataset_info <- list(
+    original_dimensions = list(rows = nrow(dataset), cols = ncol(dataset)),
+    outcome_column = outcome_col,
+    id_column = id_col,
+    covariate_columns = covariate_cols,
+    omics_columns = omics_cols,
+    num_covariates = if(is.null(covariate_cols)) 0 else length(covariate_cols),
+    num_omics_vars = length(omics_cols),
+    grouping_method = analysis_options$groupingMethod,
+    selected_tests = tests_list
+  )
+  
   # Create grouping variable based on tertiles or thresholds
   write_log(paste("Grouping method:", analysis_options$groupingMethod))
   
@@ -1007,6 +1186,14 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     )
     group_counts <- table(dataset$group, useNA = "ifany")
     write_log(paste("Group counts:", paste(names(group_counts), "=", group_counts, collapse = ", ")))
+    
+    # Add grouping information to results
+    complete_results$grouping_info <- list(
+      method = "tertiles",
+      tertile_values = as.numeric(tertiles),
+      group_counts = as.list(group_counts),
+      groups_used = groups
+    )
     
   } else if(analysis_options$groupingMethod == "threshold") {
     write_log("Creating threshold-based groups...")
@@ -1040,6 +1227,15 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     }
     group_counts <- table(dataset$group, useNA = "ifany")
     write_log(paste("Group counts:", paste(names(group_counts), "=", group_counts, collapse = ", ")))
+    
+    # Add threshold grouping information to results
+    complete_results$grouping_info <- list(
+      method = "threshold",
+      threshold_values = analysis_options$thresholdValues,
+      group_counts = as.list(group_counts),
+      groups_used = groups,
+      num_groups = length(unique(dataset$group))
+    )
   }
   
   # Statistical Tests
@@ -1050,6 +1246,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     student_t_test_results <- do_student_t_test(dataset, "group", groups, omics_cols)
     complete_results$results$`student-t`$testName <- "Student T-Test"
     complete_results$results$`student-t`$data <- student_t_test_results
+    # Add summary statistics
+    complete_results$results$`student-t`$summary <- list(
+      total_tests = nrow(student_t_test_results),
+      significant_p005 = sum(student_t_test_results$pValue < 0.05, na.rm = TRUE),
+      significant_fdr005 = sum(student_t_test_results$fdr < 0.05, na.rm = TRUE),
+      groups_compared = groups
+    )
   }
   
   if("welch-t" %in% tests_list && analysis_options$groupingMethod != "none") {
@@ -1057,6 +1260,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     welch_t_test_results <- do_welch_t_test(dataset, "group", groups, omics_cols)
     complete_results$results$`welch-t`$testName <- "Welch T-Test"
     complete_results$results$`welch-t`$data <- welch_t_test_results
+    # Add summary statistics
+    complete_results$results$`welch-t`$summary <- list(
+      total_tests = nrow(welch_t_test_results),
+      significant_p005 = sum(welch_t_test_results$pValue < 0.05, na.rm = TRUE),
+      significant_fdr005 = sum(welch_t_test_results$fdr < 0.05, na.rm = TRUE),
+      groups_compared = groups
+    )
   }
   
   if("wilcoxon" %in% tests_list && analysis_options$groupingMethod != "none") {
@@ -1064,6 +1274,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     wilcoxon_test_results <- do_wilcoxon_test(dataset, "group", groups, omics_cols)
     complete_results$results$wilcoxon$testName <- "Wilcoxon Test"
     complete_results$results$wilcoxon$data <- wilcoxon_test_results
+    # Add summary statistics
+    complete_results$results$wilcoxon$summary <- list(
+      total_tests = nrow(wilcoxon_test_results),
+      significant_p005 = sum(wilcoxon_test_results$pValue < 0.05, na.rm = TRUE),
+      significant_fdr005 = sum(wilcoxon_test_results$fdr < 0.05, na.rm = TRUE),
+      groups_compared = groups
+    )
   }
   
   if("anova" %in% tests_list && analysis_options$groupingMethod != "none") {
@@ -1074,6 +1291,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
         complete_results$results$anova$testName <- "ANOVA Test"
         complete_results$results$anova$data <- anova_test_results$results
         complete_results$results$anova$posthoc_data <- anova_test_results$posthoc_results
+        # Add summary statistics
+        complete_results$results$anova$summary <- list(
+          total_tests = nrow(anova_test_results$results),
+          significant_p005 = sum(anova_test_results$results$pValue < 0.05, na.rm = TRUE),
+          significant_fdr005 = sum(anova_test_results$results$fdr < 0.05, na.rm = TRUE),
+          posthoc_comparisons = if(!is.null(anova_test_results$posthoc_results)) nrow(anova_test_results$posthoc_results) else 0
+        )
       } else {
         write_log("Skipping ANOVA test (only 2 groups available)")
       }
@@ -1083,6 +1307,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
       complete_results$results$anova$testName <- "ANOVA Test"
       complete_results$results$anova$data <- anova_test_results$results
       complete_results$results$anova$posthoc_data <- anova_test_results$posthoc_results
+      # Add summary statistics
+      complete_results$results$anova$summary <- list(
+        total_tests = nrow(anova_test_results$results),
+        significant_p005 = sum(anova_test_results$results$pValue < 0.05, na.rm = TRUE),
+        significant_fdr005 = sum(anova_test_results$results$fdr < 0.05, na.rm = TRUE),
+        posthoc_comparisons = if(!is.null(anova_test_results$posthoc_results)) nrow(anova_test_results$posthoc_results) else 0
+      )
     }
   }
   
@@ -1094,6 +1325,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
         complete_results$results$`welch-anova`$testName <- "Welch-ANOVA Test"
         complete_results$results$`welch-anova`$data <- welch_anova_test_results$results
         complete_results$results$`welch-anova`$posthoc_data <- welch_anova_test_results$posthoc_results
+        # Add summary statistics
+        complete_results$results$`welch-anova`$summary <- list(
+          total_tests = nrow(welch_anova_test_results$results),
+          significant_p005 = sum(welch_anova_test_results$results$pValue < 0.05, na.rm = TRUE),
+          significant_fdr005 = sum(welch_anova_test_results$results$fdr < 0.05, na.rm = TRUE),
+          posthoc_comparisons = if(!is.null(welch_anova_test_results$posthoc_results)) nrow(welch_anova_test_results$posthoc_results) else 0
+        )
       } else {
         write_log("Skipping Welch ANOVA test (only 2 groups available)")
       }
@@ -1103,6 +1341,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
       complete_results$results$`welch-anova`$testName <- "Welch-ANOVA Test"
       complete_results$results$`welch-anova`$data <- welch_anova_test_results$results
       complete_results$results$`welch-anova`$posthoc_data <- welch_anova_test_results$posthoc_results
+      # Add summary statistics
+      complete_results$results$`welch-anova`$summary <- list(
+        total_tests = nrow(welch_anova_test_results$results),
+        significant_p005 = sum(welch_anova_test_results$results$pValue < 0.05, na.rm = TRUE),
+        significant_fdr005 = sum(welch_anova_test_results$results$fdr < 0.05, na.rm = TRUE),
+        posthoc_comparisons = if(!is.null(welch_anova_test_results$posthoc_results)) nrow(welch_anova_test_results$posthoc_results) else 0
+      )
     }
   }
   
@@ -1114,6 +1359,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
         complete_results$results$`kruskal-wallis`$testName <- "Kruskal-Wallis Test"
         complete_results$results$`kruskal-wallis`$data <- kw_test_results$results
         complete_results$results$`kruskal-wallis`$posthoc_data <- kw_test_results$posthoc_results
+        # Add summary statistics
+        complete_results$results$`kruskal-wallis`$summary <- list(
+          total_tests = nrow(kw_test_results$results),
+          significant_p005 = sum(kw_test_results$results$pValue < 0.05, na.rm = TRUE),
+          significant_fdr005 = sum(kw_test_results$results$fdr < 0.05, na.rm = TRUE),
+          posthoc_comparisons = if(!is.null(kw_test_results$posthoc_results)) nrow(kw_test_results$posthoc_results) else 0
+        )
       } else {
         write_log("Skipping Kruskal-Wallis test (only 2 groups available)")
       }
@@ -1123,6 +1375,13 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
       complete_results$results$`kruskal-wallis`$testName <- "Kruskal-Wallis Test"
       complete_results$results$`kruskal-wallis`$data <- kw_test_results$results
       complete_results$results$`kruskal-wallis`$posthoc_data <- kw_test_results$posthoc_results
+      # Add summary statistics
+      complete_results$results$`kruskal-wallis`$summary <- list(
+        total_tests = nrow(kw_test_results$results),
+        significant_p005 = sum(kw_test_results$results$pValue < 0.05, na.rm = TRUE),
+        significant_fdr005 = sum(kw_test_results$results$fdr < 0.05, na.rm = TRUE),
+        posthoc_comparisons = if(!is.null(kw_test_results$posthoc_results)) nrow(kw_test_results$posthoc_results) else 0
+      )
     }
   }
   
@@ -1131,6 +1390,14 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     pearson_test_results <- do_pearson_test(dataset, outcome_col, omics_cols)
     complete_results$results$pearson$testName <- "Pearson Correlation Test"
     complete_results$results$pearson$data <- pearson_test_results$results
+    # Add summary statistics
+    complete_results$results$pearson$summary <- list(
+      total_tests = nrow(pearson_test_results$results),
+      significant_p005 = sum(pearson_test_results$results$pValue < 0.05, na.rm = TRUE),
+      significant_fdr005 = sum(pearson_test_results$results$fdr < 0.05, na.rm = TRUE),
+      strong_correlations = sum(abs(pearson_test_results$results$cor) > 0.5, na.rm = TRUE),
+      outcome_variable = outcome_col
+    )
   }
   
   if("spearman" %in% tests_list) {
@@ -1138,6 +1405,14 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     spearman_test_results <- do_spearman_test(dataset, outcome_col, omics_cols)
     complete_results$results$spearman$testName <- "Spearman Correlation Test"
     complete_results$results$spearman$data <- spearman_test_results$results
+    # Add summary statistics
+    complete_results$results$spearman$summary <- list(
+      total_tests = nrow(spearman_test_results$results),
+      significant_p005 = sum(spearman_test_results$results$pValue < 0.05, na.rm = TRUE),
+      significant_fdr005 = sum(spearman_test_results$results$fdr < 0.05, na.rm = TRUE),
+      strong_correlations = sum(abs(spearman_test_results$results$cor) > 0.5, na.rm = TRUE),
+      outcome_variable = outcome_col
+    )
   }
   
   if(analysis_options$linearRegression == TRUE) {
@@ -1147,11 +1422,40 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     complete_results$results$linearregression$testName <- "Linear Regression"
     complete_results$results$linearregression$data <- lr_results$results
     complete_results$results$linearregression$data_removed_influentials <- lr_results$removed_influentials_results
+    # Add summary statistics
+    complete_results$results$linearregression$summary <- list(
+      total_models = nrow(lr_results$results),
+      significant_p005 = sum(lr_results$results$p.value < 0.05, na.rm = TRUE),
+      outcome_variable = outcome_col,
+      covariates_included = if(is.null(covariate_cols)) "None" else paste(covariate_cols, collapse = ", "),
+      influential_removed = analysis_options$linearRegressionWithoutInfluentials,
+      total_influential_obs = if(!is.null(lr_results$removed_influentials_results)) nrow(lr_results$removed_influentials_results) else 0
+    )
   }
   
   # Multivariate Analysis
   write_log("=== STARTING MULTIVARIATE ANALYSIS ===")
   multivariate_analysis <- analysis_options$multivariateAnalysis
+  
+  # ENHANCED DIAGNOSTICS: Log all multivariate analysis settings
+  write_log("=== MULTIVARIATE ANALYSIS CONFIGURATION ===")
+  write_log(paste("Ridge enabled:", multivariate_analysis$ridge$enabled))
+  write_log(paste("Lasso enabled:", multivariate_analysis$lasso$enabled))
+  write_log(paste("ElasticNet enabled:", multivariate_analysis$elasticNet$enabled))
+  write_log(paste("RandomForest enabled:", multivariate_analysis$randomForest$enabled))
+  write_log(paste("Boruta enabled:", multivariate_analysis$boruta$enabled))
+  write_log(paste("RFE enabled:", multivariate_analysis$rfe$enabled))
+  
+  if (multivariate_analysis$rfe$enabled) {
+    write_log("=== RFE CONFIGURATION DETAILS ===")
+    write_log(paste("RFE subsetSizeType:", multivariate_analysis$rfe$subsetSizeType))
+    write_log(paste("RFE metric:", multivariate_analysis$rfe$metric))
+    write_log(paste("RFE includeCovariates:", multivariate_analysis$rfe$includeCovariates))
+    write_log(paste("RFE customSubsetSizes type:", class(multivariate_analysis$rfe$customSubsetSizes)))
+    write_log(paste("RFE customSubsetSizes value:", toString(multivariate_analysis$rfe$customSubsetSizes)))
+    write_log("=== END RFE CONFIGURATION ===")
+  }
+  write_log("=== END MULTIVARIATE CONFIGURATION ===")
   
   # Check for missing values before multivariate analysis
   if(any(is.na(dataset))) {
@@ -1179,6 +1483,18 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     complete_results$results$ridge$data <- ridge_results$coef_table
     complete_results$results$ridge$metric_lambda <- ridge_results$metric_lambda
     complete_results$results$ridge$coefs_lambda <- ridge_results$coefs_lambda
+    # Add configuration and summary
+    complete_results$results$ridge$config <- list(
+      metric = multivariate_analysis$ridge$metric,
+      lambda_rule = multivariate_analysis$ridge$lambdaRule,
+      lambda_selection = multivariate_analysis$ridge$lambdaSelection,
+      include_covariates = multivariate_analysis$ridge$includeCovariates
+    )
+    complete_results$results$ridge$summary <- list(
+      total_features = nrow(ridge_results$coef_table),
+      non_zero_coefficients = sum(abs(ridge_results$coef_table$Coefficient) > 1e-6),
+      dataset_dimensions = list(rows = nrow(mv_dataset), cols = ncol(mv_dataset))
+    )
   } else if(multivariate_analysis$ridge$enabled == TRUE) {
     write_log("Skipping Ridge regression due to missing values", "WARN")
   }
@@ -1203,6 +1519,18 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     complete_results$results$lasso$data <- lasso_results$coef_table
     complete_results$results$lasso$metric_lambda <- lasso_results$metric_lambda
     complete_results$results$lasso$coefs_lambda <- lasso_results$coefs_lambda
+    # Add configuration and summary
+    complete_results$results$lasso$config <- list(
+      metric = multivariate_analysis$lasso$metric,
+      lambda_rule = multivariate_analysis$lasso$lambdaRule,
+      lambda_selection = multivariate_analysis$lasso$lambdaSelection,
+      include_covariates = multivariate_analysis$lasso$includeCovariates
+    )
+    complete_results$results$lasso$summary <- list(
+      total_features = nrow(lasso_results$coef_table),
+      selected_features = sum(abs(lasso_results$coef_table$Coefficient) > 1e-6),
+      dataset_dimensions = list(rows = nrow(mv_dataset), cols = ncol(mv_dataset))
+    )
   } else if(multivariate_analysis$lasso$enabled == TRUE) {
     write_log("Skipping Lasso regression due to missing values", "WARN")
   }
@@ -1229,6 +1557,18 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     complete_results$results$elasticNet$data <- enet_results$coef_table
     complete_results$results$elasticNet$metric_lambda <- enet_results$metric_lambda
     complete_results$results$elasticNet$coefs_lambda <- enet_results$coefs_lambda
+    # Add configuration and summary
+    complete_results$results$elasticNet$config <- list(
+      metric = multivariate_analysis$elasticNet$metric,
+      lambda_rule = multivariate_analysis$elasticNet$lambdaRule,
+      lambda_selection = multivariate_analysis$elasticNet$lambdaSelection,
+      include_covariates = multivariate_analysis$elasticNet$includeCovariates
+    )
+    complete_results$results$elasticNet$summary <- list(
+      total_features = nrow(enet_results$coef_table),
+      selected_features = sum(abs(enet_results$coef_table$Coefficient) > 1e-6),
+      dataset_dimensions = list(rows = nrow(mv_dataset), cols = ncol(mv_dataset))
+    )
   } else if(multivariate_analysis$elasticNet$enabled == TRUE) {
     write_log("Skipping Elastic Net regression due to missing values", "WARN")
   }
@@ -1249,7 +1589,20 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     complete_results$results$randomForest$data <- rf_results$results 
     complete_results$results$randomForest$best_metric <- rf_results$best_metric 
     complete_results$results$randomForest$chosen_mtry <- rf_results$chosen_mtry
+    complete_results$results$randomForest$ntree <- rf_results$ntree
     complete_results$results$randomForest$mtry_tuning <- rf_results$mtry_tuning
+    # Add configuration and summary
+    complete_results$results$randomForest$config <- list(
+      ntree = multivariate_analysis$randomForest$ntree,
+      mtry_selection = multivariate_analysis$randomForest$mtrySelection,
+      mtry_value = multivariate_analysis$randomForest$mtryValue,
+      include_covariates = multivariate_analysis$randomForest$includeCovariates
+    )
+    complete_results$results$randomForest$summary <- list(
+      total_features = nrow(rf_results$results),
+      dataset_dimensions = list(rows = nrow(mv_dataset), cols = ncol(mv_dataset)),
+      top_5_features = head(rf_results$results[order(-rf_results$results$Importance), ]$Variable, 5)
+    )
   } else if(multivariate_analysis$randomForest$enabled == TRUE) {
     write_log("Skipping Random Forest due to missing values", "WARN")
   }
@@ -1270,37 +1623,135 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     
     complete_results$results$boruta$testName <- "Boruta Feature Selection"
     complete_results$results$boruta$data <- boruta_results$results
-    complete_results$results$boruta$selected_vars <- boruta_results$selected_vars 
+    complete_results$results$boruta$selected_vars <- boruta_results$selected_vars
+    complete_results$results$boruta$iterations <- boruta_results$iterations
+    complete_results$results$boruta$maxRuns <- boruta_results$maxRuns
+    complete_results$results$boruta$ntree <- multivariate_analysis$boruta$ntree
+    # Add configuration and summary
+    complete_results$results$boruta$config <- list(
+      ntree = multivariate_analysis$boruta$ntree,
+      max_runs = multivariate_analysis$boruta$maxRuns,
+      mtry_selection = multivariate_analysis$boruta$mtrySelection,
+      mtry_value = multivariate_analysis$boruta$mtryValue,
+      rough_fix_tentative = multivariate_analysis$boruta$roughFixTentativeFeatures,
+      include_covariates = multivariate_analysis$boruta$includeCovariates
+    )
+    complete_results$results$boruta$summary <- list(
+      total_features = nrow(boruta_results$results),
+      confirmed_features = sum(boruta_results$results$decision == "Confirmed", na.rm = TRUE),
+      rejected_features = sum(boruta_results$results$decision == "Rejected", na.rm = TRUE),
+      tentative_features = sum(boruta_results$results$decision == "Tentative", na.rm = TRUE),
+      selected_features = length(boruta_results$selected_vars),
+      iterations_completed = boruta_results$iterations,
+      dataset_dimensions = list(rows = nrow(mv_dataset), cols = ncol(mv_dataset))
+    ) 
   } else if(multivariate_analysis$boruta$enabled == TRUE) {
     write_log("Skipping Boruta feature selection due to missing values", "WARN")
   }
   
   # RFE
+  write_log("=== RFE EXECUTION CHECK ===")
+  write_log(paste("RFE enabled status:", multivariate_analysis$rfe$enabled))
+  write_log(paste("Dataset has missing values:", any(is.na(dataset))))
+  write_log(paste("Number of missing values in dataset:", sum(is.na(dataset))))
+  if(any(is.na(dataset))) {
+    missing_by_col <- sapply(dataset, function(x) sum(is.na(x)))
+    write_log(paste("Missing values by column:", paste(names(missing_by_col)[missing_by_col > 0], "=", missing_by_col[missing_by_col > 0], collapse = ", ")))
+  }
+  write_log("=== END RFE EXECUTION CHECK ===")
+  
   if(multivariate_analysis$rfe$enabled == TRUE && !any(is.na(dataset))) {
     write_log("Preparing data for Recursive Feature Elimination...")
+    write_log("=== RFE DIAGNOSTICS START ===")
+    
+    # Log RFE configuration
+    write_log(paste("RFE enabled:", multivariate_analysis$rfe$enabled))
+    write_log(paste("RFE subsetSizeType:", multivariate_analysis$rfe$subsetSizeType))
+    write_log(paste("RFE metric:", multivariate_analysis$rfe$metric))
+    write_log(paste("RFE includeCovariates:", multivariate_analysis$rfe$includeCovariates))
+    
     mv_dataset <- prepare_mv_dataset(dataset, id_col, "group", covariate_cols, 
                                      !multivariate_analysis$rfe$includeCovariates)
     log_data_info(mv_dataset, "rfe_dataset")
     
-    # Handle customSubsetSizes - should now be an array from FastAPI transformation
+    # ENHANCED DIAGNOSTICS: Handle customSubsetSizes with detailed logging
     custom_sizes <- multivariate_analysis$rfe$customSubsetSizes
+    write_log(paste("Raw customSubsetSizes type:", class(custom_sizes)))
+    write_log(paste("Raw customSubsetSizes length:", length(custom_sizes)))
+    write_log(paste("Raw customSubsetSizes content:", toString(custom_sizes)))
+    
     if (is.character(custom_sizes)) {
       # Fallback for string format
       write_log("Converting custom subset sizes from string format")
+      write_log(paste("String value:", custom_sizes))
       custom_sizes <- as.numeric(trimws(strsplit(custom_sizes, ",")[[1]]))
+      write_log(paste("After string conversion:", paste(custom_sizes, collapse = ", ")))
+    } else if (is.list(custom_sizes)) {
+      write_log("Converting custom subset sizes from list format")
+      custom_sizes <- as.numeric(unlist(custom_sizes))
+      write_log(paste("After list conversion:", paste(custom_sizes, collapse = ", ")))
+    } else if (is.null(custom_sizes)) {
+      write_log("customSubsetSizes is NULL")
+      custom_sizes <- numeric(0)
     }
     
-    rfe_results <- do_rfe(mv_dataset, outcome_col, 
-                          multivariate_analysis$rfe$subsetSizeType,
-                          custom_sizes,
-                          multivariate_analysis$rfe$metric)
+    write_log(paste("Final custom_sizes before RFE:", paste(custom_sizes, collapse = ", ")))
+    write_log("=== RFE DIAGNOSTICS END ===")
     
-    complete_results$results$rfe$testName <- "Recursive Feature Elimination"
-    complete_results$results$rfe$data <- rfe_results$results
-    complete_results$results$rfe$selected_vars <- rfe_results$selected_vars
-    complete_results$results$rfe$selected_size <- rfe_results$selected_size
-    complete_results$results$rfe$best_metric <- rfe_results$best_metric
-    complete_results$results$rfe$optimization <- rfe_results$optimization
+    tryCatch({
+      rfe_results <- do_rfe(mv_dataset, outcome_col, 
+                            multivariate_analysis$rfe$subsetSizeType,
+                            custom_sizes,
+                            multivariate_analysis$rfe$metric)
+      
+      write_log("RFE analysis completed successfully")
+      
+      # Store RFE results
+      if (!is.null(rfe_results) && length(rfe_results$selected_vars) > 0) {
+        complete_results$results$rfe$testName <- "Recursive Feature Elimination"
+        complete_results$results$rfe$data <- rfe_results$results
+        complete_results$results$rfe$selected_vars <- rfe_results$selected_vars
+        complete_results$results$rfe$selected_size <- rfe_results$selected_size
+        complete_results$results$rfe$best_metric <- rfe_results$best_metric
+        complete_results$results$rfe$optimization <- rfe_results$optimization
+        # Add configuration and summary
+        complete_results$results$rfe$config <- list(
+          subset_size_type = multivariate_analysis$rfe$subsetSizeType,
+          metric = multivariate_analysis$rfe$metric,
+          include_covariates = multivariate_analysis$rfe$includeCovariates,
+          custom_subset_sizes = custom_sizes
+        )
+        complete_results$results$rfe$summary <- list(
+          total_features = nrow(rfe_results$results),
+          selected_features = length(rfe_results$selected_vars),
+          optimal_subset_size = rfe_results$selected_size,
+          subset_sizes_tested = if(!is.null(rfe_results$optimization)) unique(rfe_results$optimization$Variables) else NULL,
+          dataset_dimensions = list(rows = nrow(mv_dataset), cols = ncol(mv_dataset))
+        )
+        write_log("RFE results stored successfully")
+      } else {
+        write_log("RFE returned no valid results", "WARN")
+        complete_results$results$rfe$testName <- "Recursive Feature Elimination"
+        complete_results$results$rfe$data <- data.frame()
+        complete_results$results$rfe$selected_vars <- character(0)
+        complete_results$results$rfe$selected_size <- 0
+        complete_results$results$rfe$best_metric <- NA
+        complete_results$results$rfe$optimization <- data.frame()
+      }
+      
+    }, error = function(e) {
+      error_msg <- paste("RFE analysis failed:", e$message)
+      write_log(error_msg, "ERROR")
+      write_log(paste("Error traceback:", toString(e)), "ERROR")
+      # Don't stop the entire analysis, just log the error
+      complete_results$results$rfe$testName <- "Recursive Feature Elimination"
+      complete_results$results$rfe$error <- error_msg
+      complete_results$results$rfe$data <- data.frame()
+      complete_results$results$rfe$selected_vars <- character(0)
+      complete_results$results$rfe$selected_size <- 0
+      complete_results$results$rfe$best_metric <- NA
+      complete_results$results$rfe$optimization <- data.frame()
+    })
   } else if(multivariate_analysis$rfe$enabled == TRUE) {
     write_log("Skipping RFE due to missing values", "WARN")
   }
@@ -1311,10 +1762,40 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
   
   # Log completion summary
   analysis_duration <- difftime(complete_results$time_end, complete_results$time_start, units = "secs")
+  
+  # Add comprehensive analysis summary
+  analysis_methods_run <- names(complete_results$results)
+  total_sig_results <- 0
+  total_fdr_sig_results <- 0
+  
+  # Calculate overall significance statistics
+  for (method in analysis_methods_run) {
+    if (!is.null(complete_results$results[[method]]$summary)) {
+      if (!is.null(complete_results$results[[method]]$summary$significant_p005)) {
+        total_sig_results <- total_sig_results + complete_results$results[[method]]$summary$significant_p005
+      }
+      if (!is.null(complete_results$results[[method]]$summary$significant_fdr005)) {
+        total_fdr_sig_results <- total_fdr_sig_results + complete_results$results[[method]]$summary$significant_fdr005
+      }
+    }
+  }
+  
+  complete_results$analysis_summary <- list(
+    total_duration_seconds = as.numeric(analysis_duration),
+    methods_completed = length(analysis_methods_run),
+    methods_run = analysis_methods_run,
+    total_significant_p005 = total_sig_results,
+    total_significant_fdr005 = total_fdr_sig_results,
+    bivariate_methods = length(intersect(analysis_methods_run, c("student-t", "welch-t", "wilcoxon", "anova", "welch-anova", "kruskal-wallis", "pearson", "spearman", "linearregression"))),
+    multivariate_methods = length(intersect(analysis_methods_run, c("ridge", "lasso", "elasticNet", "randomForest", "boruta", "rfe")))
+  )
+  
   write_log("=== ANALYSIS COMPLETED ===")
   write_log(paste("Total analysis duration:", round(as.numeric(analysis_duration), 2), "seconds"))
   write_log(paste("Number of analysis types completed:", length(complete_results$results)))
   write_log(paste("Analysis methods run:", paste(names(complete_results$results), collapse = ", ")))
+  write_log(paste("Total significant results (p < 0.05):", total_sig_results))
+  write_log(paste("Total FDR significant results (FDR < 0.05):", total_fdr_sig_results))
   
   log_function("main_analysis", "EXIT", paste("- Duration:", round(as.numeric(analysis_duration), 2), "sec"))
   return(complete_results)
@@ -1374,6 +1855,10 @@ write_log("Input file validation: PASSED")
 write_log("Output directory validation: PASSED")
 
 write_log("=== STARTING ANALYSIS EXECUTION ===")
+
+# Initialize final_result variable
+final_result <- NULL
+
 tryCatch({
   # Perform the main analysis
   final_result <- main_analysis(input_file, preprocessing_options, analysis_options, analysis_id)
@@ -1394,6 +1879,21 @@ tryCatch({
 
 # Output JSON result
 write_log("=== GENERATING OUTPUT ===")
+
+# Safety check for final_result
+if (is.null(final_result)) {
+  write_log("final_result is NULL - creating error result", "ERROR")
+  final_result <- list(
+    success = FALSE,
+    message = "Analysis failed: final_result is NULL",
+    results = NULL,
+    analysis_id = analysis_id,
+    error = "final_result is NULL",
+    status = "error",
+    timestamp = as.character(Sys.time())
+  )
+}
+
 json_output <- toJSON(final_result, auto_unbox = TRUE, pretty = FALSE)
 json_size <- nchar(json_output)
 write_log(paste("JSON output size:", json_size, "characters"))

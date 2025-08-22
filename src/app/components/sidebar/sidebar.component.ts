@@ -21,6 +21,7 @@ import { DataFlowService } from '../../services/data-flow.service';
             [class.active]="item.status === 'active'"
             [class.completed]="isStepCompleted(item.id)"
             [class.disabled]="item.status === 'disabled'"
+            [title]="getNavItemTooltip(item)"
             (click)="navigateToStep(item.id)">
             
             <div class="nav-item-icon">{{ item.icon }}</div>
@@ -28,6 +29,9 @@ import { DataFlowService } from '../../services/data-flow.service';
               <span class="nav-item-label">{{ item.label }}</span>
               @if (isStepCompleted(item.id)) {
                 <span class="status-icon">✓</span>
+              }
+              @if (item.id === 'upload' && dataFlowService.isRecoveryMode()) {
+                <span class="recovery-indicator" title="Non disponibile in modalità recupero">🔒</span>
               }
             </div>
           </div>
@@ -147,6 +151,16 @@ import { DataFlowService } from '../../services/data-flow.service';
       color: white;
     }
 
+    .recovery-indicator {
+      font-size: 12px;
+      color: #fbbf24;
+      margin-left: 4px;
+    }
+
+    .nav-item.active .recovery-indicator {
+      color: #fde68a;
+    }
+
     .sidebar-footer {
       padding: 24px 16px;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -172,7 +186,7 @@ import { DataFlowService } from '../../services/data-flow.service';
 export class SidebarComponent {
   constructor(
     public navigationService: NavigationService,
-    private dataFlowService: DataFlowService
+    public dataFlowService: DataFlowService
   ) {}
 
   navigateToStep(stepId: string) {
@@ -181,6 +195,22 @@ export class SidebarComponent {
 
   isStepCompleted(stepId: string): boolean {
     return this.dataFlowService.isStepCompleted(stepId);
+  }
+
+  getNavItemTooltip(item: any): string {
+    if (item.id === 'upload' && this.dataFlowService.isRecoveryMode()) {
+      return 'Non disponibile durante il recupero di un\'analisi precedente. Utilizzare "Nuova Analisi" per caricare nuovi file.';
+    }
+    
+    if (item.status === 'disabled') {
+      // Check if we're on the results page (analysis is active)
+      if (window.location.pathname.includes('/results') && item.id !== 'results') {
+        return 'Navigazione disabilitata durante l\'analisi. Utilizzare "Nuova Analisi" per ricominciare.';
+      }
+      return 'Completa i passaggi precedenti per abilitare questa sezione';
+    }
+    
+    return '';
   }
 
   resetWorkflow() {

@@ -27,7 +27,17 @@ export class PlotlyService {
     const variableColumn = options?.variableColumn || 
       possibleVariableColumns.find(col => data[0] && data[0][col] !== undefined) || 'Variable';
     
-    const pValueColumn = options?.pValueColumn || 'pValue';
+    // Comprehensive p-value column detection including R's common output formats
+    const possiblePValueColumns = ['pValue', 'pval', 'p_value', 'P.value', 'Pr(>|t|)', 'p.value', 'pvalue'];
+    const pValueColumn = options?.pValueColumn || 
+      possiblePValueColumns.find(col => data[0] && data[0][col] !== undefined) || 'pValue';
+    
+    console.log('[DEBUG] Manhattan Plot - Column Detection:', {
+      sampleData: data[0],
+      availableColumns: Object.keys(data[0] || {}),
+      detectedVariableColumn: variableColumn,
+      detectedPValueColumn: pValueColumn
+    });
     
     // Extract variables and p-values
     const variables = data.map((row, index) => row[variableColumn]?.toString() || `Variable_${index}`);
@@ -107,7 +117,31 @@ export class PlotlyService {
 
     const shapes: any[] = [];
     
-    // Add significance line if requested
+    // Add multiple significance lines
+    const significanceLines = [
+      { threshold: -Math.log10(0.05), color: '#f59e0b', label: 'p = 0.05' },
+      { threshold: -Math.log10(0.01), color: '#f97316', label: 'p = 0.01' },
+      { threshold: -Math.log10(0.001), color: '#dc2626', label: 'p = 0.001' }
+    ];
+    
+    significanceLines.forEach(line => {
+      if (line.threshold <= yMax + yPad) {
+        shapes.push({
+          type: 'line',
+          x0: 0,
+          x1: variables.length - 1,
+          y0: line.threshold,
+          y1: line.threshold,
+          line: {
+            color: line.color,
+            width: 2,
+            dash: 'dash'
+          }
+        });
+      }
+    });
+    
+    // Add custom significance line if requested (using light purple)
     if (options?.significanceLine && options?.significanceThreshold) {
       shapes.push({
         type: 'line',
@@ -116,9 +150,9 @@ export class PlotlyService {
         y0: options.significanceThreshold,
         y1: options.significanceThreshold,
         line: {
-          color: 'red',
+          color: '#c084fc',
           width: 2,
-          dash: 'dash'
+          dash: 'dot'
         }
       });
     }
@@ -141,10 +175,223 @@ export class PlotlyService {
       font: { family: 'Arial, sans-serif' },
       plot_bgcolor: '#f8fafc',
       paper_bgcolor: '#ffffff',
-      height: 400,
+      height: Math.min(820, element.parentElement?.clientHeight || 800),
       showlegend: false,
       hovermode: 'closest'
     };
+    return this.createPlot(element, plotData, layout);
+  }
+
+  /**
+   * Manhattan plot specifically for Linear Regression results
+   * x = feature/variable names, y = -log10(pValue)
+   * Includes specific handling for standard and robust regression results
+   */
+  createLinearRegressionManhattanPlot(
+    element: HTMLElement,
+    data: any[],
+    options?: {
+      title?: string;
+      xaxis?: string;
+      yaxis?: string;
+      significanceLine?: boolean;
+      significanceThreshold?: number;
+      variableColumn?: string;
+      pValueColumn?: string;
+      estimateColumn?: string;
+      regressionType?: 'standard' | 'robust';
+    }
+  ): Promise<any> {
+    // Determine column names dynamically - with more comprehensive p-value detection
+    const possibleVariableColumns = ['Variable', 'variable', 'term', 'feature', 'predictor'];
+    const variableColumn = options?.variableColumn || 
+      possibleVariableColumns.find(col => data[0] && data[0][col] !== undefined) || 'Variable';
+    
+    // Comprehensive p-value column detection including R's common output formats
+    const possiblePValueColumns = ['pValue', 'pval', 'p_value', 'P.value', 'Pr(>|t|)', 'p.value', 'pvalue'];
+    const pValueColumn = options?.pValueColumn || 
+      possiblePValueColumns.find(col => data[0] && data[0][col] !== undefined) || 'pValue';
+    
+    const estimateColumn = options?.estimateColumn || 'estimate';
+    
+    console.log('[DEBUG] Linear Regression Manhattan Plot - Column Detection:', {
+      sampleData: data[0],
+      availableColumns: Object.keys(data[0] || {}),
+      detectedVariableColumn: variableColumn,
+      detectedPValueColumn: pValueColumn,
+      detectedEstimateColumn: estimateColumn
+    });
+    
+    // Filter out intercept terms which are not meaningful for Manhattan plots
+    const filteredData = data.filter(row => {
+      const variable = row[variableColumn]?.toString().toLowerCase();
+      return variable && !variable.includes('intercept') && !variable.includes('(intercept)');
+    });
+    
+    console.log('[DEBUG] Data filtering:', {
+      originalLength: data.length,
+      filteredLength: filteredData.length,
+      sampleFilteredData: filteredData[0]
+    });
+    
+    if (filteredData.length === 0) {
+      element.innerHTML = `
+        <div style="height: 800px; display: flex; align-items: center; justify-content: center; color: #ef4444;">
+          <p>No valid variables for linear regression Manhattan plot</p>
+          <p>Available columns: ${Object.keys(data[0] || {}).join(', ')}</p>
+        </div>
+      `;
+      return Promise.resolve();
+    }
+    
+    // Extract variables and p-values
+    const variables = filteredData.map((row, index) => row[variableColumn]?.toString() || `Variable_${index}`);
+    const pValues = filteredData.map(row => Number(row[pValueColumn]));
+    const estimates = filteredData.map(row => Number(row[estimateColumn] || 0));
+    const y = pValues.map(p => p > 0 ? -Math.log10(p) : 0);
+    
+    // Create enhanced tooltips with regression-specific information
+    const tooltips = filteredData.map((row, index) => {
+      const lines: string[] = [`<b>${row[variableColumn] || `Variable_${index}`}</b>`];
+      
+      // Always show p-value
+      if (row[pValueColumn] !== undefined) {
+        lines.push(`p-value: ${Number(row[pValueColumn]).toExponential(2)}`);
+      }
+      
+      // Show coefficient/estimate
+      if (row[estimateColumn] !== undefined) {
+        lines.push(`Coefficient: ${Number(row[estimateColumn]).toFixed(4)}`);
+      }
+      
+      // Show standard error if available
+      if (row['std.error'] !== undefined) {
+        lines.push(`Std. Error: ${Number(row['std.error']).toFixed(4)}`);
+      }
+      
+      // Show t-statistic if available
+      if (row.statistic !== undefined || row['t.value'] !== undefined) {
+        const tStat = row.statistic || row['t.value'];
+        lines.push(`t-statistic: ${Number(tStat).toFixed(3)}`);
+      }
+      
+      // Show confidence intervals if available
+      if (row['conf.low'] !== undefined && row['conf.high'] !== undefined) {
+        lines.push(`95% CI: [${Number(row['conf.low']).toFixed(3)}, ${Number(row['conf.high']).toFixed(3)}]`);
+      }
+      
+      return lines.join('<br>');
+    });
+
+    // Determine point colors based on significance and effect direction
+    const colors = filteredData.map(row => {
+      const pVal = Number(row[pValueColumn]);
+      const estimate = Number(row[estimateColumn] || 0);
+      
+      if (pVal < 0.05) {
+        return estimate > 0 ? '#3b82f6' : '#1d4ed8'; // Blue for significant (positive/negative)
+      } else {
+        return '#9ca3af'; // Gray for non-significant
+      }
+    });
+
+    // Determine point sizes based on effect size
+    const sizes = estimates.map(est => {
+      const absEst = Math.abs(est);
+      if (absEst > 1) return 12;
+      if (absEst > 0.5) return 10;
+      if (absEst > 0.1) return 8;
+      return 6;
+    });
+
+    const regressionTypeLabel = options?.regressionType === 'robust' ? 'Robust ' : '';
+    
+    const plotData = [{
+      x: variables,
+      y,
+      text: tooltips,
+      mode: 'markers',
+      type: 'scatter',
+      marker: {
+        color: colors,
+        size: sizes,
+        opacity: 0.8,
+        line: { width: 1, color: '#ffffff' }
+      },
+      hovertemplate: '%{text}<extra></extra>',
+      name: 'Variables'
+    }];
+
+    // Calculate y-axis range
+    const yMin = Math.min(...y);
+    const yMax = Math.max(...y);
+    const yPad = (yMax - yMin) * 0.1 || 1;
+
+    const shapes: any[] = [];
+    
+    // Add significance lines
+    const significanceLines = [
+      { threshold: -Math.log10(0.05), color: '#f59e0b', label: 'p = 0.05' },
+      { threshold: -Math.log10(0.01), color: '#f97316', label: 'p = 0.01' },
+      { threshold: -Math.log10(0.001), color: '#dc2626', label: 'p = 0.001' }
+    ];
+    
+    significanceLines.forEach(line => {
+      if (line.threshold <= yMax + yPad) {
+        shapes.push({
+          type: 'line',
+          x0: 0,
+          x1: variables.length - 1,
+          y0: line.threshold,
+          y1: line.threshold,
+          line: {
+            color: line.color,
+            width: 2,
+            dash: 'dash'
+          }
+        });
+      }
+    });
+    
+    // Add custom significance line if requested (using light purple)
+    if (options?.significanceLine && options?.significanceThreshold) {
+      shapes.push({
+        type: 'line',
+        x0: 0,
+        x1: variables.length - 1,
+        y0: options.significanceThreshold,
+        y1: options.significanceThreshold,
+        line: {
+          color: '#c084fc',
+          width: 2,
+          dash: 'dot'
+        }
+      });
+    }
+
+    const layout = {
+      title: options?.title || `${regressionTypeLabel}Linear Regression Manhattan Plot`,
+      xaxis: {
+        title: options?.xaxis || 'Variables',
+        showticklabels: false,
+        zeroline: false
+      },
+      yaxis: {
+        title: options?.yaxis || '-log10(p-value)',
+        zeroline: true,
+        zerolinecolor: '#e2e8f0',
+        range: [Math.max(0, yMin - yPad), yMax + yPad]
+      },
+      shapes: shapes,
+      margin: { t: 60, r: 40, b: 60, l: 60 },
+      font: { family: 'Arial, sans-serif' },
+      plot_bgcolor: '#f8fafc',
+      paper_bgcolor: '#ffffff',
+      height: Math.min(820, element.parentElement?.clientHeight || 800),
+      showlegend: false,
+      hovermode: 'closest'
+    };
+
     return this.createPlot(element, plotData, layout);
   }
 
@@ -168,7 +415,7 @@ export class PlotlyService {
     const signColumn = options?.signColumn || 'sign';
     const topN = options?.topN || 20;
 
-    // Filter and sort data
+    // Filter and sort data by absolute importance in descending order
     const filteredData = data
       .filter((row: any) => {
         const importance = Number(row[importanceColumn]);
@@ -176,9 +423,9 @@ export class PlotlyService {
         return hasVariable && !isNaN(importance) && importance !== null && importance !== undefined;
       })
       .sort((a: any, b: any) => {
-        const aImp = Number(a[importanceColumn]);
-        const bImp = Number(b[importanceColumn]);
-        return bImp - aImp;
+        const aImp = Math.abs(Number(a[importanceColumn]));
+        const bImp = Math.abs(Number(b[importanceColumn]));
+        return bImp - aImp; // Sort by absolute importance in descending order
       })
       .slice(0, topN);
 
@@ -191,10 +438,10 @@ export class PlotlyService {
       return Promise.resolve();
     }
 
-    // Prepare data
-    const variables = filteredData.map((row: any) => row[variableColumn] || 'Unknown');
-    const importances = filteredData.map((row: any) => Number(row[importanceColumn]));
-    const signs = filteredData.map((row: any) => Number(row[signColumn] || 0));
+    // Prepare data - reverse the order so highest importance appears at the top
+    const variables = filteredData.map((row: any) => row[variableColumn] || 'Unknown').reverse();
+    const importances = filteredData.map((row: any) => Number(row[importanceColumn])).reverse();
+    const signs = filteredData.map((row: any) => Number(row[signColumn] || 0)).reverse();
     
     // Create colors based on sign: positive = blue, negative = red, zero = gray
     const colors = signs.map((sign: number) => {
@@ -230,7 +477,10 @@ export class PlotlyService {
         type: 'category'
       },
       margin: { l: 150, r: 40, t: 60, b: 40 },
-      height: Math.max(400, filteredData.length * 25 + 100),
+      font: { family: 'Arial, sans-serif' },
+      plot_bgcolor: '#f8fafc',
+      paper_bgcolor: '#ffffff',
+      height: Math.min(820, element.parentElement?.clientHeight || 800),
       showlegend: false
     };
 
@@ -347,6 +597,11 @@ export class PlotlyService {
           line: { color: '#dc2626', width: 1, dash: 'dash' }
         }
       ],
+      margin: { t: 60, r: 40, b: 60, l: 60 },
+      font: { family: 'Arial, sans-serif' },
+      plot_bgcolor: '#f8fafc',
+      paper_bgcolor: '#ffffff',
+      height: Math.min(820, element.parentElement?.clientHeight || 800),
       showlegend: false
     };
 
@@ -430,7 +685,10 @@ export class PlotlyService {
         automargin: true
       },
       margin: { l: 150, r: 40, t: 60, b: 40 },
-      height: Math.max(400, validData.length * 30 + 100),
+      font: { family: 'Arial, sans-serif' },
+      plot_bgcolor: '#f8fafc',
+      paper_bgcolor: '#ffffff',
+      height: Math.min(820, element.parentElement?.clientHeight || 800),
       showlegend: false
     };
 

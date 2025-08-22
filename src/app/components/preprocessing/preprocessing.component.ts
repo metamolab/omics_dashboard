@@ -6,6 +6,7 @@ import { DataFlowService } from '../../services/data-flow.service';
 import { NavigationService } from '../../services/navigation.service';
 import { FileParserService } from '../../services/file-parser.service';
 import { ApiService } from '../../services/api.service';
+import { SessionService } from '../../services/session.service';
 import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../models/interfaces';
 
 @Component({
@@ -831,7 +832,8 @@ export class PreprocessingComponent implements OnInit {
     private dataFlowService: DataFlowService,
     private navigationService: NavigationService,
     private fileParserService: FileParserService,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private sessionService: SessionService
   ) {}
 
   async ngOnInit() {
@@ -844,13 +846,9 @@ export class PreprocessingComponent implements OnInit {
 
     this.fileName = fileData.fileName;
 
-    // Genera un sessionId randomico se non già presente
-    let sessionId = window.sessionStorage.getItem('sessionId');
-    if (!sessionId) {
-      sessionId = crypto.randomUUID();
-      window.sessionStorage.setItem('sessionId', sessionId);
-    }
-    this.sessionId = sessionId;
+    // Use the centralized session service for consistent session management
+    this.sessionId = this.sessionService.getSessionId();
+    console.log('[PREPROCESSING] Using session service - sessionId:', this.sessionId);
 
     // Setta userId come 'MasterTest' se non già presente
     let userId = window.sessionStorage.getItem('userId');

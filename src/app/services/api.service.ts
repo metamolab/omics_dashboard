@@ -86,6 +86,11 @@ export class ApiService {
     return this.http.get<AnalysisResult>(`${this.baseUrl}/results/${analysisId}`);
   }
 
+  // Get list of previous analyses from local folders
+  getPreviousAnalyses(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/analyses`);
+  }
+
   // Test connectivity to FastAPI backend
   testConnection(): Observable<any> {
     return this.http.get(`${this.baseUrl}/test`);
@@ -94,5 +99,27 @@ export class ApiService {
   // Test R integration
   testRIntegration(): Observable<any> {
     return this.http.get(`${this.baseUrl}/test_r`);
+  }
+
+  // Get available preprocessing options from user sessions
+  getPreprocessingOptions(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/preprocessing-options`);
+  }
+
+  // Get specific preprocessing options by ID (sessionId)
+  getPreprocessingOptionById(sessionId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/preprocessing-options/${sessionId}`);
+  }
+
+  // Get available files from user sessions
+  getSessionFiles(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/session-files`);
+  }
+
+  // Get specific file from session (returns blob for download)
+  getSessionFile(sessionId: string, filename: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/session-files/${sessionId}/${filename}`, {
+      responseType: 'blob'
+    });
   }
 }
