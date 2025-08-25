@@ -2155,12 +2155,12 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     this.preprocessingInfo = preprocessingOptions;
 
     // Debug: Log preprocessing info and analysis type detection
-    console.log('Preprocessing Info:', this.preprocessingInfo);
-    console.log('Session ID:', this.preprocessingInfo?.sessionId);
-    console.log('User ID:', this.preprocessingInfo?.userId);
-    console.log('Outcome Type:', this.preprocessingInfo?.columnClassification?.outcomeType);
-    console.log('Analysis Type:', this.analysisType);
-    console.log('Is Classification:', this.isClassification);
+    // console.log('Preprocessing Info:', this.preprocessingInfo);
+    // console.log('Session ID:', this.preprocessingInfo?.sessionId);
+    // console.log('User ID:', this.preprocessingInfo?.userId);
+    // console.log('Outcome Type:', this.preprocessingInfo?.columnClassification?.outcomeType);
+    // console.log('Analysis Type:', this.analysisType);
+    // console.log('Is Classification:', this.isClassification);
 
     // Set analysis type based on preprocessing outcome type
     this.options.analysisType = this.analysisType;
@@ -2177,7 +2177,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         // Extract outcome values for histogram
         await this.extractOutcomeValues(fileData.processedFile);
       } catch (error) {
-        console.error('Error parsing preprocessed file:', error);
+        // console.error('Error parsing preprocessed file:', error);
       }
     }
 
@@ -2238,7 +2238,7 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
         ];
       }
     } catch (error) {
-      console.error('Error extracting outcome values:', error);
+      // console.error('Error extracting outcome values:', error);
     }
   }
 
@@ -2645,11 +2645,11 @@ export class AnalysisSelectionComponent implements OnInit, AfterViewInit, OnDest
     const sessionId = this.sessionService.getSessionId();
     const userId = this.sessionService.getUserId();
     
-    console.log('[ANALYSIS_SELECTION] Using session service for analysis options:', {
-      sessionId,
-      userId,
-      sessionInfo: this.sessionService.getSessionInfo()
-    });
+    // console.log('[ANALYSIS_SELECTION] Using session service for analysis options:', {
+    //   sessionId,
+    //   userId,
+    //   sessionInfo: this.sessionService.getSessionInfo()
+    // });
     
     // Propagate both sessionId and userId in options
     this.dataFlowService.setAnalysisOptions({ 

@@ -32,12 +32,12 @@ export class PlotlyService {
     const pValueColumn = options?.pValueColumn || 
       possiblePValueColumns.find(col => data[0] && data[0][col] !== undefined) || 'pValue';
     
-    console.log('[DEBUG] Manhattan Plot - Column Detection:', {
-      sampleData: data[0],
-      availableColumns: Object.keys(data[0] || {}),
-      detectedVariableColumn: variableColumn,
-      detectedPValueColumn: pValueColumn
-    });
+    // console.log('[DEBUG] Manhattan Plot - Column Detection:', {
+    //   sampleData: data[0],
+    //   availableColumns: Object.keys(data[0] || {}),
+    //   detectedVariableColumn: variableColumn,
+    //   detectedPValueColumn: pValueColumn
+    // });
     
     // Extract variables and p-values
     const variables = data.map((row, index) => row[variableColumn]?.toString() || `Variable_${index}`);
@@ -85,14 +85,14 @@ export class PlotlyService {
     });
 
     // Debug log for data validation
-    console.log('Manhattan plot data:', {
-      pointCount: variables.length,
-      variableCount: new Set(variables).size,
-      yRange: { min: Math.min(...y), max: Math.max(...y) },
-      availableColumns: Object.keys(data[0] || {}),
-      variableColumn,
-      pValueColumn
-    });
+    // console.log('Manhattan plot data:', {
+    //   pointCount: variables.length,
+    //   variableCount: new Set(variables).size,
+    //   yRange: { min: Math.min(...y), max: Math.max(...y) },
+    //   availableColumns: Object.keys(data[0] || {}),
+    //   variableColumn,
+    //   pValueColumn
+    // });
 
     const plotData = [{
       x: variables,
@@ -214,13 +214,13 @@ export class PlotlyService {
     
     const estimateColumn = options?.estimateColumn || 'estimate';
     
-    console.log('[DEBUG] Linear Regression Manhattan Plot - Column Detection:', {
-      sampleData: data[0],
-      availableColumns: Object.keys(data[0] || {}),
-      detectedVariableColumn: variableColumn,
-      detectedPValueColumn: pValueColumn,
-      detectedEstimateColumn: estimateColumn
-    });
+    // console.log('[DEBUG] Linear Regression Manhattan Plot - Column Detection:', {
+    //   sampleData: data[0],
+    //   availableColumns: Object.keys(data[0] || {}),
+    //   detectedVariableColumn: variableColumn,
+    //   detectedPValueColumn: pValueColumn,
+    //   detectedEstimateColumn: estimateColumn
+    // });
     
     // Filter out intercept terms which are not meaningful for Manhattan plots
     const filteredData = data.filter(row => {
@@ -228,11 +228,11 @@ export class PlotlyService {
       return variable && !variable.includes('intercept') && !variable.includes('(intercept)');
     });
     
-    console.log('[DEBUG] Data filtering:', {
-      originalLength: data.length,
-      filteredLength: filteredData.length,
-      sampleFilteredData: filteredData[0]
-    });
+    // console.log('[DEBUG] Data filtering:', {
+    //   originalLength: data.length,
+    //   filteredLength: filteredData.length,
+    //   sampleFilteredData: filteredData[0]
+    // });
     
     if (filteredData.length === 0) {
       element.innerHTML = `
@@ -892,5 +892,164 @@ export class PlotlyService {
     };
 
     return this.createPlot(element, data, layout);
+  }
+
+  /**
+   * Summary Feature Frequency Plot
+   * Horizontal stacked bar chart showing features selected in multiple tests
+   * Only includes features that appear in more than 2 tests
+   */
+  createSummaryFeatureFrequencyPlot(
+    element: HTMLElement,
+    summaryData: any[],
+    options?: {
+      title?: string;
+      minTestCount?: number;
+      featureColumn?: string;
+      methodColumn?: string;
+      methodTypeColumn?: string;
+    }
+  ): Promise<any> {
+    const featureColumn = options?.featureColumn || 'feature';
+    const methodColumn = options?.methodColumn || 'method';
+    const methodTypeColumn = options?.methodTypeColumn || 'method_type';
+    const minTestCount = options?.minTestCount || 2;
+
+    if (!summaryData || summaryData.length === 0) {
+      element.innerHTML = `
+        <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444;">
+          <p>No summary data available for feature frequency plot</p>
+        </div>
+      `;
+      return Promise.resolve();
+    }
+
+    // Count occurrences of each feature across all methods
+    const featureCounts: { [key: string]: number } = {};
+    summaryData.forEach(row => {
+      const feature = row[featureColumn];
+      if (feature) {
+        featureCounts[feature] = (featureCounts[feature] || 0) + 1;
+      }
+    });
+
+    // Filter features that appear in more than minTestCount tests
+    const frequentFeatures = Object.keys(featureCounts)
+      .filter(feature => featureCounts[feature] > minTestCount)
+      .sort((a, b) => featureCounts[b] - featureCounts[a]); // Sort by frequency descending
+
+    if (frequentFeatures.length === 0) {
+      element.innerHTML = `
+        <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f59e0b; text-align: center;">
+          <p style="margin: 8px 0; font-size: 16px; font-weight: 500;">No features found in more than ${minTestCount} tests</p>
+          <p style="margin: 4px 0; font-size: 14px;">Total unique features: ${Object.keys(featureCounts).length}</p>
+          <p style="margin: 4px 0; font-size: 14px;">Consider lowering the minimum test count threshold</p>
+        </div>
+      `;
+      return Promise.resolve();
+    }
+
+    // Group data by method type and method for stacking
+    const methodTypes = ['bivariate', 'multivariate'];
+    const bivariateMethodColors: { [key: string]: string } = {
+      'student-t': '#3b82f6',
+      'welch-t': '#1d4ed8',
+      'wilcoxon': '#1e40af',
+      'anova': '#7c3aed',
+      'welch-anova': '#6d28d9',
+      'kruskal-wallis': '#5b21b6',
+      'pearson': '#22c55e',
+      'spearman': '#16a34a',
+      'linearregression': '#059669'
+    };
+
+    const multivariateMethodColors: { [key: string]: string } = {
+      'ridge': '#f59e0b',
+      'lasso': '#d97706',
+      'elasticNet': '#c2410c',
+      'randomForest': '#dc2626',
+      'boruta': '#b91c1c',
+      'rfe': '#991b1b'
+    };
+
+    // Create traces for each method
+    const allMethods = [...Object.keys(bivariateMethodColors), ...Object.keys(multivariateMethodColors)];
+    const traces: any[] = [];
+
+    allMethods.forEach(method => {
+      const methodData = summaryData.filter(row => row[methodColumn] === method);
+      const featureMethodCounts = frequentFeatures.map(feature => {
+        return methodData.filter(row => row[featureColumn] === feature).length;
+      });
+
+      // Only add trace if this method has at least one occurrence
+      if (featureMethodCounts.some(count => count > 0)) {
+        const isBivariate = Object.keys(bivariateMethodColors).includes(method);
+        const color = isBivariate ? bivariateMethodColors[method] : multivariateMethodColors[method];
+
+        traces.push({
+          type: 'bar',
+          orientation: 'h',
+          name: method,
+          x: featureMethodCounts,
+          y: frequentFeatures,
+          marker: {
+            color: color,
+            opacity: 0.8
+          },
+          hovertemplate: `<b>%{y}</b><br>Method: ${method}<br>Count: %{x}<extra></extra>`,
+          showlegend: true
+        });
+      }
+    });
+
+    // Calculate total counts for sorting (already sorted above, but let's add text annotations)
+    const totalCounts = frequentFeatures.map(feature => featureCounts[feature]);
+
+    const layout = {
+      title: options?.title || `Features Selected in Multiple Tests (>${minTestCount} tests)`,
+      xaxis: {
+        title: 'Number of Tests Selecting Feature',
+        showgrid: true,
+        gridcolor: '#e2e8f0'
+      },
+      yaxis: {
+        title: '',
+        showgrid: false,
+        automargin: true,
+        type: 'category'
+      },
+      barmode: 'stack',
+      margin: { l: 200, r: 40, t: 80, b: 60 },
+      font: { family: 'Arial, sans-serif' },
+      plot_bgcolor: '#f8fafc',
+      paper_bgcolor: '#ffffff',
+      height: Math.max(400, Math.min(800, frequentFeatures.length * 25 + 150)),
+      showlegend: true,
+      legend: {
+        orientation: 'h',
+        yanchor: 'bottom',
+        y: 1.02,
+        xanchor: 'right',
+        x: 1,
+        bgcolor: 'rgba(255,255,255,0.8)',
+        bordercolor: 'rgba(0,0,0,0.2)',
+        borderwidth: 1
+      },
+      annotations: frequentFeatures.map((feature, index) => ({
+        x: totalCounts[index] + 0.1,
+        y: feature,
+        text: `${totalCounts[index]}`,
+        showarrow: false,
+        font: {
+          color: '#374151',
+          size: 10,
+          family: 'Arial, sans-serif'
+        },
+        xanchor: 'left'
+      }))
+    };
+
+    return this.createPlot(element, traces, layout);
   }
 }

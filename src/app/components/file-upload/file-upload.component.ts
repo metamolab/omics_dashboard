@@ -1826,11 +1826,11 @@ export class FileUploadComponent implements OnInit {
     this.remoteFilesError.set(null);
     
     try {
-      console.log('[UPLOAD] Loading session files from API...');
+      // console.log('[UPLOAD] Loading session files from API...');
       
       this.apiService.getSessionFiles().subscribe({
         next: (files: any[]) => {
-          console.log('[UPLOAD] Loaded session files:', files);
+          // console.log('[UPLOAD] Loaded session files:', files);
           
           // Transform API response to RemoteFile format
           const transformedFiles: RemoteFile[] = files.map(file => ({
@@ -1849,14 +1849,14 @@ export class FileUploadComponent implements OnInit {
           this.isLoadingRemoteFiles.set(false);
         },
         error: (error: any) => {
-          console.error('[UPLOAD] Error loading session files:', error);
+          // console.error('[UPLOAD] Error loading session files:', error);
           this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file di sessione');
           this.isLoadingRemoteFiles.set(false);
         }
       });
       
     } catch (error: any) {
-      console.error('[UPLOAD] Exception in loadRemoteFiles:', error);
+      // console.error('[UPLOAD] Exception in loadRemoteFiles:', error);
       this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file di sessione');
       this.isLoadingRemoteFiles.set(false);
     }
@@ -1865,7 +1865,7 @@ export class FileUploadComponent implements OnInit {
   selectRemoteFile(file: RemoteFile) {
     this.selectedRemoteFile.set(file);
     
-    console.log('[UPLOAD] Selected session file:', file);
+    // console.log('[UPLOAD] Selected session file:', file);
     
     // Create a FileData object for compatibility with existing flow
     const fileData: FileData = {
@@ -1879,15 +1879,19 @@ export class FileUploadComponent implements OnInit {
       userId: file.sessionId.split('_')[0] // Extract userId from sessionId format
     };
     
+    // When selecting a remote file for reprocessing (not recovery), 
+    // explicitly set recovery mode to false to allow new preprocessing
+    this.dataFlowService.setRecoveryMode(false);
+    
     this.dataFlowService.setFileData(fileData);
     this.navigationService.updateNavigationStatus();
     
-    console.log('[UPLOAD] Set file data for session file:', {
-      fileName: fileData.fileName,
-      sessionId: fileData.sessionId,
-      userId: fileData.userId,
-      fileType: file.fileType
-    });
+    // console.log('[UPLOAD] Set file data for session file:', {
+    //   fileName: fileData.fileName,
+    //   sessionId: fileData.sessionId,
+    //   userId: fileData.userId,
+    //   fileType: file.fileType
+    // });
   }
 
   // Preprocessing options methods
@@ -1896,11 +1900,11 @@ export class FileUploadComponent implements OnInit {
     this.preprocessingOptionsError.set(null);
     
     try {
-      console.log('[UPLOAD] Loading preprocessing options from API...');
+      // console.log('[UPLOAD] Loading preprocessing options from API...');
       
       this.apiService.getPreprocessingOptions().subscribe({
         next: (options: any[]) => {
-          console.log('[UPLOAD] Loaded preprocessing options:', options);
+          // console.log('[UPLOAD] Loaded preprocessing options:', options);
           
           // Transform API response to RemotePreprocessingOptions format
           const transformedOptions: RemotePreprocessingOptions[] = options.map(option => ({
@@ -1915,14 +1919,14 @@ export class FileUploadComponent implements OnInit {
           this.isLoadingPreprocessingOptions.set(false);
         },
         error: (error: any) => {
-          console.error('[UPLOAD] Error loading preprocessing options:', error);
+          // console.error('[UPLOAD] Error loading preprocessing options:', error);
           this.preprocessingOptionsError.set(error.message || 'Errore nel caricamento delle opzioni di preprocessing');
           this.isLoadingPreprocessingOptions.set(false);
         }
       });
       
     } catch (error: any) {
-      console.error('[UPLOAD] Exception in loadPreprocessingOptions:', error);
+      // console.error('[UPLOAD] Exception in loadPreprocessingOptions:', error);
       this.preprocessingOptionsError.set(error.message || 'Errore nel caricamento delle opzioni di preprocessing');
       this.isLoadingPreprocessingOptions.set(false);
     }
@@ -1965,18 +1969,18 @@ export class FileUploadComponent implements OnInit {
     if (this.selectedPreprocessingOption()) {
       const selectedOption = this.selectedPreprocessingOption()!;
       
-      console.log('[UPLOAD] Using existing preprocessing options:', selectedOption);
+      // console.log('[UPLOAD] Using existing preprocessing options:', selectedOption);
       
       // Generate new session credentials for this workflow
       // The sessionID from the existing preprocessing file should NOT be reused
       const currentUserId = this.sessionService.getUserId();
       const newSessionId = this.sessionService.generateNewSession(); // Generate fresh session
       
-      console.log('[UPLOAD] Generated new session for existing preprocessing:', {
-        originalSessionId: selectedOption.id,
-        newSessionId: newSessionId,
-        userId: currentUserId
-      });
+      // console.log('[UPLOAD] Generated new session for existing preprocessing:', {
+      //   originalSessionId: selectedOption.id,
+      //   newSessionId: newSessionId,
+      //   userId: currentUserId
+      // });
       
       // Create preprocessing options with new session credentials
       const preprocessingOptionsWithNewSession = {
@@ -1988,7 +1992,7 @@ export class FileUploadComponent implements OnInit {
       // Set the preprocessing options in the data flow service
       this.dataFlowService.setPreprocessingOptions(preprocessingOptionsWithNewSession);
       
-      console.log('[UPLOAD] Set preprocessing options with new session credentials - navigating to preprocessing component');
+      // console.log('[UPLOAD] Set preprocessing options with new session credentials - navigating to preprocessing component');
       
       // Navigate to preprocessing step so user can review and modify the recovered options
       this.navigationService.navigateToStep('preprocessing');
@@ -2003,7 +2007,7 @@ export class FileUploadComponent implements OnInit {
     try {
       this.apiService.getPreviousAnalyses().subscribe({
         next: (analyses: any[]) => {
-          console.log('Loaded previous analyses:', analyses);
+          // console.log('Loaded previous analyses:', analyses);
           
           // Transform API response to PreviousAnalysis format
           const transformedAnalyses: PreviousAnalysis[] = analyses.map(analysis => ({
@@ -2021,14 +2025,14 @@ export class FileUploadComponent implements OnInit {
           this.isLoadingAnalyses.set(false);
         },
         error: (error: any) => {
-          console.error('Error loading previous analyses:', error);
+          // console.error('Error loading previous analyses:', error);
           this.analysesError.set(error.message || 'Errore nel caricamento delle analisi precedenti');
           this.isLoadingAnalyses.set(false);
         }
       });
       
     } catch (error: any) {
-      console.error('Error in loadPreviousAnalyses:', error);
+      // console.error('Error in loadPreviousAnalyses:', error);
       this.analysesError.set(error.message || 'Errore nel caricamento delle analisi precedenti');
       this.isLoadingAnalyses.set(false);
     }
@@ -2062,7 +2066,7 @@ export class FileUploadComponent implements OnInit {
     if (this.selectedAnalysis()) {
       const analysis = this.selectedAnalysis()!;
       
-      console.log('Recovering analysis:', analysis);
+      // console.log('Recovering analysis:', analysis);
       
       // Set the analysis ID in the data flow service and enable recovery mode
       this.dataFlowService.setAnalysisId(analysis.analysisId);
@@ -2070,30 +2074,30 @@ export class FileUploadComponent implements OnInit {
       
       if (analysis.status === 'completed') {
         // For completed analyses, preload the results and navigate to results
-        console.log('Loading results for completed analysis:', analysis.analysisId);
+        // console.log('Loading results for completed analysis:', analysis.analysisId);
         
         // Optionally load and cache the results immediately
         this.apiService.getAnalysisResults(analysis.analysisId).subscribe({
           next: (result) => {
-            console.log('Successfully loaded analysis results:', result);
+            // console.log('Successfully loaded analysis results:', result);
             // Navigate to results - the results component will pick up the analysisId
             // from the data flow service and load the results automatically
             this.navigationService.navigateToStep('results');
           },
           error: (error) => {
-            console.error('Error loading analysis results:', error);
+            // console.error('Error loading analysis results:', error);
             // Still navigate to results - let the results component handle the error
             this.navigationService.navigateToStep('results');
           }
         });
       } else if (analysis.status === 'running' || analysis.status === 'pending') {
         // For running/pending analyses, navigate to results for monitoring
-        console.log('Monitoring running/pending analysis:', analysis.analysisId);
+        // console.log('Monitoring running/pending analysis:', analysis.analysisId);
         this.navigationService.navigateToStep('results');
       } else if (analysis.status === 'failed') {
         // For failed analyses, we could navigate to results to show the error
         // or allow user to restart the analysis
-        console.log('Failed analysis selected:', analysis.analysisId);
+        // console.log('Failed analysis selected:', analysis.analysisId);
         this.navigationService.navigateToStep('results');
       }
     }
@@ -2199,7 +2203,7 @@ export class FileUploadComponent implements OnInit {
   }
 
   continueToPreprocessing() {
-    if (this.selectedFile()) {
+    if (this.selectedFile() || this.selectedRemoteFile()) {
       this.navigationService.navigateToStep('preprocessing');
     }
   }

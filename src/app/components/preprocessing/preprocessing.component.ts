@@ -18,6 +18,25 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
       <div class="page-header">
         <h1>Impostazioni Pre-processing</h1>
         <p>Configura come vuoi preparare i tuoi dati per l'analisi</p>
+        
+        <!-- Recovery Mode Banner -->
+        @if (dataFlowService.isRecoveryMode()) {
+          <div class="recovery-mode-banner">
+            <div class="banner-content">
+              <h4>🔄 Modalità Recupero Analisi Attivata</h4>
+              <p>Stai recuperando un'analisi esistente. Le opzioni di pre-processing sono state caricate dal file salvato.</p>
+              <div class="banner-actions">
+                <button class="secondary-btn" (click)="exitRecoveryMode()">
+                  ✏️ Modifica Pre-processing
+                </button>
+                <button class="primary-btn" (click)="continueWithRecovery()">
+                  ➡️ Continua con Analisi Esistente
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
 
       <!-- File Preview Section -->
       @if (filePreview()) {
@@ -389,7 +408,6 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
           </button>
         </div>
       </div>
-    </div>
   `,
 
   styles: [`
@@ -411,6 +429,42 @@ import { PreprocessingOptions, FilePreview, ColumnClassification } from '../../m
       margin: 10px auto;
       color: #475569;
       font-size: 16px;
+    }
+    
+    /* Recovery Mode Banner */
+    .recovery-mode-banner {
+      background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%);
+      border: 2px solid #0284c7;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 16px 0 24px 0;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+    }
+    
+    .banner-content h4 {
+      margin: 0 0 8px 0;
+      color: #0c4a6e;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .banner-content p {
+      margin: 0 0 16px 0;
+      color: #0369a1;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    
+    .banner-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .banner-actions .secondary-btn,
+    .banner-actions .primary-btn {
+      padding: 8px 16px;
+      font-size: 14px;
     }
     .preview-section,
     .classification-section,
@@ -829,7 +883,7 @@ export class PreprocessingComponent implements OnInit {
 
   constructor(
     private router: Router,
-    private dataFlowService: DataFlowService,
+    public dataFlowService: DataFlowService,
     private navigationService: NavigationService,
     private fileParserService: FileParserService,
     private apiService: ApiService,
@@ -848,7 +902,7 @@ export class PreprocessingComponent implements OnInit {
 
     // Use the centralized session service for consistent session management
     this.sessionId = this.sessionService.getSessionId();
-    console.log('[PREPROCESSING] Using session service - sessionId:', this.sessionId);
+    // console.log('[PREPROCESSING] Using session service - sessionId:', this.sessionId);
 
     // Setta userId come 'MasterTest' se non già presente
     let userId = window.sessionStorage.getItem('userId');
@@ -864,16 +918,71 @@ export class PreprocessingComponent implements OnInit {
     try {
       let preview;
       if (fileData.file) {
+        // For new uploaded files, parse the file
         preview = await this.fileParserService.parseFile(fileData.file);
         this.filePreview.set(preview);
-      } else if (fileData.isRemote && fileData.remotePath) {
-        // Handle remote file - would need API call to get preview
-        console.log('Remote file preview not yet implemented');
-        // Use existing preview if available
+      } else if (fileData.isRemote && fileData.preview) {
+        // For remote files, use existing preview if available
         preview = fileData.preview;
+        this.filePreview.set(preview);
+      } else if (fileData.isRemote && fileData.remotePath) {
+        // For remote files without preview, fetch the file from the API and parse it
+        console.log('[PREPROCESSING] Fetching remote file for preview:', fileData.remotePath);
+        
+        try {
+          // Extract sessionId and filename from the remote path
+          // Expected remotePath format: "user_sessions\{sessionId}\{filename}" (Windows) or "user_sessions/{sessionId}/{filename}" (Unix)
+          console.log('[PREPROCESSING] Original remotePath:', fileData.remotePath);
+          
+          // Normalize path separators to work with both Windows and Unix paths
+          const normalizedPath = fileData.remotePath.replace(/\\/g, '/');
+          const pathParts = normalizedPath.split('/').filter(part => part.length > 0);
+          console.log('[PREPROCESSING] Normalized path:', normalizedPath);
+          console.log('[PREPROCESSING] Path parts:', pathParts);
+          
+          // Find the sessionId - it should be after "user_sessions"
+          let sessionId = '';
+          let filename = '';
+          
+          const userSessionsIndex = pathParts.findIndex(part => part === 'user_sessions');
+          if (userSessionsIndex !== -1 && userSessionsIndex < pathParts.length - 2) {
+            sessionId = pathParts[userSessionsIndex + 1]; // Next part after "user_sessions"
+            filename = pathParts[pathParts.length - 1]; // Last part is the filename
+          } else {
+            // Fallback: assume last two parts are sessionId and filename
+            if (pathParts.length >= 2) {
+              sessionId = pathParts[pathParts.length - 2];
+              filename = pathParts[pathParts.length - 1];
+            }
+          }
+          
+          console.log('[PREPROCESSING] Extracted:', { sessionId, filename });
+          
+          if (!sessionId || !filename) {
+            console.error('[PREPROCESSING] Failed to extract sessionId and filename. PathParts:', pathParts);
+            throw new Error('Could not extract sessionId and filename from remotePath');
+          }
+          
+          // Fetch the file blob from the API
+          const fileBlob = await this.apiService.getSessionFile(sessionId, filename).toPromise();
+          
+          if (fileBlob) {
+            // Convert blob to File object for parsing
+            const file = new File([fileBlob], filename, { type: fileBlob.type });
+            
+            // Parse the file to create preview
+            preview = await this.fileParserService.parseFile(file);
+            this.filePreview.set(preview);
+            
+            console.log('[PREPROCESSING] Successfully created preview for remote file');
+          }
+        } catch (error) {
+          console.error('[PREPROCESSING] Error fetching remote file for preview:', error);
+          // Continue without preview - not critical for functionality
+        }
       }
       
-      // Update file data with preview
+      // Update file data with preview and session info
       this.dataFlowService.setFileData({
         ...fileData,
         preview,
@@ -881,21 +990,45 @@ export class PreprocessingComponent implements OnInit {
         userId: this.userId
       });
     } catch (error) {
-      console.error('Error parsing file:', error);
+      console.error('Error loading file preview:', error);
+      // For remote files, this is not critical - we can proceed without preview
+      if (!fileData.isRemote) {
+        // For new uploads, preview is more important
+        alert('Errore nel caricamento dell\'anteprima del file. Alcune funzionalità potrebbero non essere disponibili.');
+      }
     }
 
     // Load existing options if available
     const savedOptions = this.dataFlowService.preprocessingOptions();
     if (savedOptions) {
       this.options = { ...savedOptions };
-      // Restore column inputs
+      
+      // Restore missing data removal settings if they exist
+      if (savedOptions.missingDataRemoval) {
+        this.enableMissingDataRemoval = savedOptions.missingDataRemoval.enabled;
+        this.missingDataThreshold = savedOptions.missingDataRemoval.threshold;
+      }
+      
+      // Restore column inputs if classification exists
       if (savedOptions.columnClassification) {
         this.columnInputs.id = savedOptions.columnClassification.idColumn !== null ? 
           this.columnToString(savedOptions.columnClassification.idColumn) : '';
         this.columnInputs.outcome = this.columnToString(savedOptions.columnClassification.outcomeColumn);
         this.columnInputs.covariates = this.columnsToString(savedOptions.columnClassification.covariateColumns);
         this.columnInputs.omics = this.columnsToString(savedOptions.columnClassification.omicsColumns);
+        
+        // Trigger validation after restoring inputs
+        setTimeout(() => {
+          this.validateColumnInput();
+        }, 100);
       }
+    }
+
+    // For remote files, we might want to analyze missing data if we have the preview
+    if (fileData.isRemote && this.enableMissingDataRemoval && this.filePreview()) {
+      setTimeout(() => {
+        this.analyzeMissingData();
+      }, 200);
     }
   }
 
@@ -1204,12 +1337,22 @@ export class PreprocessingComponent implements OnInit {
   }
 
   isValid(): boolean {
+    // For remote files that already have preprocessing options, we should be more lenient
+    const fileData = this.dataFlowService.fileData();
+    const isRemoteFile = fileData?.isRemote || false;
+    
     // Check required fields
     const hasOutcome = this.options.columnClassification.outcomeColumn !== '' && 
                       this.options.columnClassification.outcomeColumn !== null;
     const hasOmics = this.options.columnClassification.omicsColumns.length > 0;
     
-    // Check no errors
+    // For remote files, we might not have run validation yet, so check if we have the basic structure
+    if (isRemoteFile && hasOutcome && hasOmics) {
+      // For existing analyses, trust the saved options even if validation hasn't run
+      return true;
+    }
+    
+    // For new files, check validation errors
     const noErrors = !this.columnErrors.id && 
                     !this.columnErrors.outcome && 
                     !this.columnErrors.covariates && 
@@ -1227,11 +1370,11 @@ export class PreprocessingComponent implements OnInit {
     const outcomeName = typeof outcomeCol === 'number' ? 
       (this.filePreview()?.headers || [])[outcomeCol] : outcomeCol;
     
-    console.log('Checking outcome type:');
-    console.log('- Outcome column:', outcomeCol);
-    console.log('- Outcome name:', outcomeName);
-    console.log('- Categorical columns:', this.options.columnClassification.categoricalColumns);
-    console.log('- Is outcome in categorical list:', this.options.columnClassification.categoricalColumns.includes(outcomeName));
+    // console.log('Checking outcome type:');
+    // console.log('- Outcome column:', outcomeCol);
+    // console.log('- Outcome name:', outcomeName);
+    // console.log('- Categorical columns:', this.options.columnClassification.categoricalColumns);
+    // console.log('- Is outcome in categorical list:', this.options.columnClassification.categoricalColumns.includes(outcomeName));
     
     if (this.options.columnClassification.categoricalColumns.includes(outcomeName)) {
       return 'categorical';
@@ -1364,9 +1507,149 @@ export class PreprocessingComponent implements OnInit {
     const fileData = this.dataFlowService.fileData();
     if (!fileData) return;
 
+    console.log('[PREPROCESSING] processAndContinue called with fileData:', {
+      fileName: fileData.fileName,
+      isRemote: fileData.isRemote,
+      hasFile: !!fileData.file,
+      hasProcessedFile: !!fileData.processedFile,
+      hasRemotePath: !!fileData.remotePath
+    });
+
     this.processing.set(true);
 
     try {
+      // Check if this is recovery mode - only skip preprocessing if we're recovering an existing analysis
+      const isRecoveryMode = this.dataFlowService.isRecoveryMode();
+      
+      if (isRecoveryMode && (fileData.isRemote || fileData.processedFile)) {
+        console.log('[PREPROCESSING] Skipping API preprocessing for recovery mode');
+        
+        // For recovery mode, skip API preprocessing and just update the preprocessing options
+        const preprocessingOptions = { 
+          ...this.options, 
+          columnClassification: {
+            ...this.options.columnClassification,
+            outcomeType: this.outcomeType
+          },
+          sessionId: this.sessionId, 
+          userId: this.userId 
+        };
+
+        console.log('[PREPROCESSING] Saving preprocessing options for recovery:', preprocessingOptions);
+
+        // Save preprocessing options
+        this.dataFlowService.setPreprocessingOptions(preprocessingOptions);
+        this.navigationService.updateNavigationStatus();
+        
+        // Navigate to analysis
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        this.navigationService.navigateToStep('analysis');
+        return;
+      }
+
+      console.log('[PREPROCESSING] Proceeding with API preprocessing for new file');
+
+      // For remote files that are not in recovery mode, fetch the file and apply new preprocessing
+      if (fileData.isRemote && !fileData.file && !isRecoveryMode) {
+        console.log('[PREPROCESSING] Fetching remote file for new preprocessing');
+        
+        try {
+          // Extract sessionId and filename from the remote path
+          const pathParts = fileData.remotePath?.split('/').filter(part => part.length > 0) || [];
+          const normalizedPath = fileData.remotePath?.replace(/\\/g, '/') || '';
+          const normalizedParts = normalizedPath.split('/').filter(part => part.length > 0);
+          
+          let sessionId = '';
+          let filename = '';
+          
+          const userSessionsIndex = normalizedParts.findIndex(part => part === 'user_sessions');
+          if (userSessionsIndex !== -1 && userSessionsIndex < normalizedParts.length - 2) {
+            sessionId = normalizedParts[userSessionsIndex + 1];
+            filename = normalizedParts[normalizedParts.length - 1];
+          } else if (normalizedParts.length >= 2) {
+            sessionId = normalizedParts[normalizedParts.length - 2];
+            filename = normalizedParts[normalizedParts.length - 1];
+          }
+          
+          if (!sessionId || !filename) {
+            throw new Error('Could not extract sessionId and filename from remotePath');
+          }
+          
+          console.log('[PREPROCESSING] Fetching remote file:', { sessionId, filename });
+          
+          // Fetch the file blob from the API
+          const fileBlob = await this.apiService.getSessionFile(sessionId, filename).toPromise();
+          
+          if (!fileBlob) {
+            throw new Error('Failed to fetch remote file');
+          }
+          
+          // Convert blob to File object for preprocessing
+          const file = new File([fileBlob], filename, { type: fileBlob.type });
+          
+          console.log('[PREPROCESSING] Applying new preprocessing to fetched remote file');
+          
+          // Proceed with API preprocessing using the fetched file
+          const preprocessingOptions = { 
+            ...this.options, 
+            columnClassification: {
+              ...this.options.columnClassification,
+              outcomeType: this.outcomeType
+            },
+            sessionId: this.sessionId, 
+            userId: this.userId 
+          };
+          
+          const processedBlob = await this.apiService.preprocessFile(
+            file,
+            preprocessingOptions
+          ).toPromise();
+
+          if (!processedBlob) {
+            throw new Error('No processed file received');
+          }
+
+          // Create new File from blob
+          const processedFile = new File(
+            [processedBlob], 
+            `processed_${fileData.fileName}`,
+            { type: processedBlob.type }
+          );
+
+          // Update file data with both original fetched file and processed file
+          // Clear remote status since we now have the actual files
+          this.dataFlowService.setFileData({
+            ...fileData,
+            file, // Store the fetched original file
+            processedFile,
+            isRemote: false, // Clear remote status since we have the actual files
+            remotePath: undefined, // Clear remote path
+            sessionId: this.sessionId,
+            userId: this.userId
+          });
+
+          // Save preprocessing options
+          this.dataFlowService.setPreprocessingOptions(preprocessingOptions);
+          this.navigationService.updateNavigationStatus();
+          
+          // Navigate to analysis
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          this.navigationService.navigateToStep('analysis');
+          return;
+          
+        } catch (error) {
+          console.error('[PREPROCESSING] Error fetching and preprocessing remote file:', error);
+          alert('Errore nel recupero e preprocessamento del file remoto. Riprova.');
+          this.processing.set(false);
+          return;
+        }
+      }
+
+      // For new file uploads, proceed with API preprocessing
+      if (!fileData.file) {
+        throw new Error('No file available for preprocessing');
+      }
+
       // Send file for preprocessing with outcome type
       const preprocessingOptions = { 
         ...this.options, 
@@ -1379,7 +1662,7 @@ export class PreprocessingComponent implements OnInit {
       };
       
       const processedBlob = await this.apiService.preprocessFile(
-        fileData.file!,
+        fileData.file,
         preprocessingOptions
       ).toPromise();
 
@@ -1410,7 +1693,7 @@ export class PreprocessingComponent implements OnInit {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       this.navigationService.navigateToStep('analysis');
     } catch (error) {
-      console.error('Error processing file:', error);
+      // console.error('Error processing file:', error);
       alert('Errore durante l\'elaborazione del file. Riprova.');
     } finally {
       this.processing.set(false);
@@ -1420,6 +1703,45 @@ export class PreprocessingComponent implements OnInit {
 
   getMissingDataAnalysisCount(): number {
     return Object.keys(this.missingDataAnalysis).length;
+  }
+
+  // Exit recovery mode and allow new preprocessing
+  exitRecoveryMode() {
+    const confirmExit = confirm(
+      'Vuoi uscire dalla modalità recupero e modificare le opzioni di pre-processing? ' +
+      'Questo richiederà di ricaricare il file originale.'
+    );
+    
+    if (confirmExit) {
+      // Exit recovery mode
+      this.dataFlowService.setRecoveryMode(false);
+      
+      // Clear current file data and preprocessing options
+      this.dataFlowService.setFileData(null);
+      this.dataFlowService.setPreprocessingOptions(null);
+      
+      // Navigate back to upload to select the original file
+      this.navigationService.navigateToStep('upload');
+    }
+  }
+
+  // Continue with the existing analysis in recovery mode
+  continueWithRecovery() {
+    // Save current preprocessing options and proceed to analysis
+    const preprocessingOptions = { 
+      ...this.options, 
+      columnClassification: {
+        ...this.options.columnClassification,
+        outcomeType: this.outcomeType
+      },
+      sessionId: this.sessionId, 
+      userId: this.userId 
+    };
+
+    this.dataFlowService.setPreprocessingOptions(preprocessingOptions);
+    this.navigationService.updateNavigationStatus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    this.navigationService.navigateToStep('analysis');
   }
 
   // Gestione mutua esclusione tra rimozione valori nulli e riempimento NA

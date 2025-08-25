@@ -120,6 +120,7 @@ export interface AnalysisResult {
   id: string;
   status: 'pending' | 'completed' | 'error';
   results?: any;
+  summary_results?: any[];
   error?: string;
   timestamp: Date;
   // Additional timing information from R analysis

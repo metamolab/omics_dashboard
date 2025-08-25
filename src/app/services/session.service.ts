@@ -19,7 +19,7 @@ export class SessionService {
   }
 
   private initializeSession() {
-    console.log('[SESSION] Initializing session service');
+    // console.log('[SESSION] Initializing session service');
     
     // Always generate a new session on application start
     this.generateNewSession();
@@ -29,7 +29,7 @@ export class SessionService {
    * Generates a completely new session, clearing any existing session data
    */
   generateNewSession(): string {
-    console.log('[SESSION] Generating new session');
+    // console.log('[SESSION] Generating new session');
     
     // Clear any existing session data
     sessionStorage.removeItem(this.SESSION_ID_KEY);
@@ -48,11 +48,11 @@ export class SessionService {
     sessionStorage.setItem(this.SESSION_ID_KEY, this.currentSessionId);
     sessionStorage.setItem(this.SESSION_TIMESTAMP_KEY, Date.now().toString());
     
-    console.log('[SESSION] New session generated:', {
-      sessionId: this.currentSessionId,
-      userId: this.currentUserId,
-      timestamp: new Date().toISOString()
-    });
+    // console.log('[SESSION] New session generated:', {
+    //   sessionId: this.currentSessionId,
+    //   userId: this.currentUserId,
+    //   timestamp: new Date().toISOString()
+    // });
     
     return this.currentSessionId;
   }
@@ -107,7 +107,7 @@ export class SessionService {
    */
   refreshSessionIfNeeded(): string {
     if (!this.isSessionValid()) {
-      console.log('[SESSION] Session expired, generating new session');
+      // console.log('[SESSION] Session expired, generating new session');
       return this.generateNewSession();
     }
     return this.getSessionId();
@@ -117,7 +117,7 @@ export class SessionService {
    * Manually clear the session
    */
   clearSession() {
-    console.log('[SESSION] Clearing session');
+    // console.log('[SESSION] Clearing session');
     sessionStorage.removeItem(this.SESSION_ID_KEY);
     sessionStorage.removeItem(this.SESSION_TIMESTAMP_KEY);
     this.currentSessionId = null;

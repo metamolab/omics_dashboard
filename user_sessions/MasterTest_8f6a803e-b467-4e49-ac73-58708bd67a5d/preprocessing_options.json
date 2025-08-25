@@ -1,0 +1,32 @@
+{
+  "columnClassification": {
+    "idColumn": "ID",
+    "outcomeColumn": "gsslope",
+    "covariateColumns": [
+      "age"
+    ],
+    "omicsColumns": [
+      "CTSF",
+      "MATN2",
+      "MFGE8",
+      "ACAN",
+      "ITGB1",
+      "DKK3",
+      "SPINT2"
+    ],
+    "categoricalColumns": [],
+    "outcomeType": "continuous"
+  },
+  "removeNullValues": false,
+  "fillMissingValues": "none",
+  "transformation": "none",
+  "removeOutliers": false,
+  "outlierMethod": "iqr",
+  "missingDataRemoval": {
+    "enabled": false,
+    "threshold": 50,
+    "columnsToRemove": []
+  },
+  "sessionId": "8f6a803e-b467-4e49-ac73-58708bd67a5d",
+  "userId": "MasterTest"
+}

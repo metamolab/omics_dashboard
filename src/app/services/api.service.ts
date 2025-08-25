@@ -66,7 +66,7 @@ export class ApiService {
             .map((size: string) => parseInt(size.trim(), 10))
             .filter((size: number) => !isNaN(size) && size > 0);
         } catch (error) {
-          console.warn('Failed to parse customSubsetSizes:', customSizes, error);
+          // console.warn('Failed to parse customSubsetSizes:', customSizes, error);
           // Keep as empty array if parsing fails
           transformed.multivariateAnalysis.rfe.customSubsetSizes = [];
         }

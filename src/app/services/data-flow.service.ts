@@ -35,7 +35,7 @@ export class DataFlowService {
   }
 
   resetData() {
-    console.log('[DATA_FLOW] Resetting all data and generating new session');
+    // console.log('[DATA_FLOW] Resetting all data and generating new session');
     
     // Reset all data signals
     this.fileData.set(null);
@@ -46,7 +46,7 @@ export class DataFlowService {
     
     // Generate a new session ID
     const newSessionId = this.sessionService.generateNewSession();
-    console.log('[DATA_FLOW] New session generated during reset:', newSessionId);
+    // console.log('[DATA_FLOW] New session generated during reset:', newSessionId);
   }
 
   isStepCompleted(step: string): boolean {

@@ -1,0 +1,77 @@
+{
+  "groupingMethod": "tertiles",
+  "thresholdValues": [],
+  "statisticalTests": [
+    "student-t",
+    "welch-t",
+    "anova",
+    "welch-anova",
+    "wilcoxon"
+  ],
+  "linearRegression": false,
+  "linearRegressionWithoutInfluentials": false,
+  "multivariateAnalysis": {
+    "ridge": {
+      "enabled": false,
+      "lambdaSelection": "automatic",
+      "lambdaRange": {
+        "min": 0.001,
+        "max": 1,
+        "step": 0.001
+      },
+      "metric": "rmse",
+      "lambdaRule": "min",
+      "includeCovariates": false
+    },
+    "lasso": {
+      "enabled": true,
+      "lambdaSelection": "automatic",
+      "lambdaRange": {
+        "min": 0.001,
+        "max": 1,
+        "step": 0.001
+      },
+      "metric": "rmse",
+      "lambdaRule": "min",
+      "includeCovariates": false
+    },
+    "elasticNet": {
+      "enabled": false,
+      "lambdaSelection": "automatic",
+      "lambdaRange": {
+        "min": 0.001,
+        "max": 1,
+        "step": 0.001
+      },
+      "metric": "rmse",
+      "lambdaRule": "min",
+      "includeCovariates": false
+    },
+    "randomForest": {
+      "enabled": false,
+      "ntree": 500,
+      "mtrySelection": "automatic",
+      "mtryValue": 1,
+      "includeCovariates": false
+    },
+    "boruta": {
+      "enabled": true,
+      "ntree": 500,
+      "mtrySelection": "automatic",
+      "mtryValue": 1,
+      "maxRuns": 100,
+      "roughFixTentativeFeatures": true,
+      "includeCovariates": false
+    },
+    "rfe": {
+      "enabled": false,
+      "metric": "rmse",
+      "subsetSizeType": "automatic",
+      "customSubsetSizes": "",
+      "includeCovariates": false
+    }
+  },
+  "analysisType": "regression",
+  "sessionId": "f365d82e-877b-43fa-b316-8471ef6eba27",
+  "userId": "MasterTest"
+}
