@@ -1,0 +1,403 @@
+=== OMICS ANALYSIS LOG ===
+Analysis ID: carossi_6ffa4fbe-2862-4219-a509-bb54969eee93 
+Start Time: 2025-09-03 15:31:51.700135 
+R Version: R version 4.4.3 (2025-02-28 ucrt) 
+===========================
+
+[2025-09-03 15:31:51] [INFO] === PARSING COMMAND LINE ARGUMENTS ===
+[2025-09-03 15:31:51] [INFO] Number of arguments: 1
+[2025-09-03 15:31:51] [INFO] First argument: C:\Users\caros\AppData\Local\Temp\tmphdww4e43.json
+[2025-09-03 15:31:51] [INFO] Successfully parsed JSON configuration
+[2025-09-03 15:31:51] [INFO] === CONFIGURATION EXTRACTED ===
+[2025-09-03 15:31:51] [INFO] Input file: C:\Users\caros\Documents\test_angular_r_api\data-analysis-dashboard\user_sessions\carossi_6ffa4fbe-2862-4219-a509-bb54969eee93\analysis_processed_my_dataset.csv
+[2025-09-03 15:31:51] [INFO] Output directory: C:\Users\caros\Documents\test_angular_r_api\data-analysis-dashboard\user_sessions\carossi_6ffa4fbe-2862-4219-a509-bb54969eee93
+[2025-09-03 15:31:51] [INFO] Analysis ID: carossi_6ffa4fbe-2862-4219-a509-bb54969eee93
+[2025-09-03 15:31:51] [INFO] Log file initialized: C:\Users\caros\Documents\test_angular_r_api\data-analysis-dashboard\user_sessions\carossi_6ffa4fbe-2862-4219-a509-bb54969eee93/analysis_carossi_6ffa4fbe-2862-4219-a509-bb54969eee93_20250903_153151.log
+[2025-09-03 15:31:51] [INFO] Input file validation: PASSED
+[2025-09-03 15:31:51] [INFO] Output directory validation: PASSED
+[2025-09-03 15:31:51] [INFO] === STARTING ANALYSIS EXECUTION ===
+[2025-09-03 15:31:52] [DEBUG] ENTERING function: main_analysis - Analysis ID: carossi_6ffa4fbe-2862-4219-a509-bb54969eee93
+[2025-09-03 15:31:52] [INFO] === STARTING MAIN ANALYSIS ===
+[2025-09-03 15:31:52] [INFO] Input file: C:\Users\caros\Documents\test_angular_r_api\data-analysis-dashboard\user_sessions\carossi_6ffa4fbe-2862-4219-a509-bb54969eee93\analysis_processed_my_dataset.csv
+[2025-09-03 15:31:52] [INFO] Analysis ID: carossi_6ffa4fbe-2862-4219-a509-bb54969eee93
+[2025-09-03 15:31:52] [INFO] Reading input data file...
+[2025-09-03 15:31:52] [INFO] File extension: csv
+[2025-09-03 15:31:52] [INFO] Data loaded using read_csv
+[2025-09-03 15:31:52] [INFO] Data info for input_dataset :
+[2025-09-03 15:31:52] [INFO]   Dimensions: 654 rows x 99 columns
+[2025-09-03 15:31:52] [INFO]   Column names: ID, gsslope, age, sex, bmi, gs, CTSF, MATN2, MFGE8, ACAN ...
+[2025-09-03 15:31:52] [INFO]   No missing values detected
+[2025-09-03 15:31:52] [INFO] Processing column classifications...
+[2025-09-03 15:31:52] [INFO] ID column: ID
+[2025-09-03 15:31:52] [INFO] Outcome column: gsslope
+[2025-09-03 15:31:52] [INFO] Covariate columns: 4
+[2025-09-03 15:31:52] [INFO] Omics columns: 93
+[2025-09-03 15:31:52] [INFO] Selected statistical tests: student-t, welch-t, anova, welch-anova, kruskal-wallis, wilcoxon, pearson, spearman
+[2025-09-03 15:31:52] [INFO] Grouping method: tertiles
+[2025-09-03 15:31:52] [INFO] Creating tertile groups...
+[2025-09-03 15:31:52] [INFO] Tertiles: -2.675, -0.319, 0.349, 2.627
+[2025-09-03 15:31:52] [INFO] Group counts: 1t = 218, 2t = 218, 3t = 218
+[2025-09-03 15:31:52] [INFO] === STARTING STATISTICAL TESTS ===
+[2025-09-03 15:31:52] [INFO] Running Student's t-test...
+[2025-09-03 15:31:52] [DEBUG] ENTERING function: do_student_t_test - Variables: 93
+[2025-09-03 15:31:52] [INFO] Running Student's t-test on 93 variables
+[2025-09-03 15:31:52] [INFO] Groups: 1t, 3t
+[2025-09-03 15:31:52] [INFO] Student's t-test completed: 93 tests performed
+[2025-09-03 15:31:52] [INFO] Significant results (p < 0.05): 7
+[2025-09-03 15:31:52] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:31:52] [DEBUG] EXITING function: do_student_t_test 
+[2025-09-03 15:31:52] [INFO] Running Welch's t-test...
+[2025-09-03 15:31:52] [DEBUG] ENTERING function: do_welch_t_test - Variables: 93
+[2025-09-03 15:31:52] [INFO] Running Welch's t-test on 93 variables
+[2025-09-03 15:31:52] [INFO] Groups: 1t, 3t
+[2025-09-03 15:31:53] [INFO] Welch's t-test completed: 93 tests performed
+[2025-09-03 15:31:53] [INFO] Significant results (p < 0.05): 7
+[2025-09-03 15:31:53] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:31:53] [DEBUG] EXITING function: do_welch_t_test 
+[2025-09-03 15:31:53] [INFO] Running Wilcoxon test...
+[2025-09-03 15:31:53] [DEBUG] ENTERING function: do_wilcoxon_test - Variables: 93
+[2025-09-03 15:31:53] [INFO] Running Wilcoxon test on 93 variables
+[2025-09-03 15:31:53] [INFO] Using exact = FALSE to avoid ties warning
+[2025-09-03 15:31:53] [INFO] Wilcoxon test completed: 93 tests performed
+[2025-09-03 15:31:53] [INFO] Significant results (p < 0.05): 8
+[2025-09-03 15:31:53] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:31:53] [DEBUG] EXITING function: do_wilcoxon_test 
+[2025-09-03 15:31:53] [INFO] Running ANOVA test (tertiles)...
+[2025-09-03 15:31:53] [DEBUG] ENTERING function: do_anova_test - Variables: 93
+[2025-09-03 15:31:53] [INFO] Running ANOVA tests on 93 variables
+[2025-09-03 15:31:53] [INFO] Including Games-Howell post-hoc tests
+[2025-09-03 15:31:58] [INFO] ANOVA tests completed: 93 tests performed
+[2025-09-03 15:31:58] [INFO] Significant results (p < 0.05): 7
+[2025-09-03 15:31:58] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:31:58] [INFO] Post-hoc comparisons: 279
+[2025-09-03 15:31:58] [DEBUG] EXITING function: do_anova_test 
+[2025-09-03 15:31:58] [INFO] Running Welch ANOVA test (tertiles)...
+[2025-09-03 15:31:58] [DEBUG] ENTERING function: do_welch_anova_test - Variables: 93
+[2025-09-03 15:31:58] [INFO] Running Welch ANOVA tests on 93 variables
+[2025-09-03 15:31:58] [INFO] Including Games-Howell post-hoc tests
+[2025-09-03 15:32:03] [INFO] Welch ANOVA tests completed: 93 tests performed
+[2025-09-03 15:32:03] [INFO] Significant results (p < 0.05): 7
+[2025-09-03 15:32:03] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:32:03] [INFO] Post-hoc comparisons: 279
+[2025-09-03 15:32:03] [DEBUG] EXITING function: do_welch_anova_test 
+[2025-09-03 15:32:03] [INFO] Running Kruskal-Wallis test (tertiles)...
+[2025-09-03 15:32:03] [DEBUG] ENTERING function: do_kw_test - Variables: 93
+[2025-09-03 15:32:03] [INFO] Running Kruskal-Wallis tests on 93 variables
+[2025-09-03 15:32:03] [INFO] Including Dunn's post-hoc tests
+[2025-09-03 15:32:07] [INFO] Kruskal-Wallis tests completed: 93 tests performed
+[2025-09-03 15:32:07] [INFO] Significant results (p < 0.05): 7
+[2025-09-03 15:32:07] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:32:07] [INFO] Post-hoc comparisons: 279
+[2025-09-03 15:32:07] [DEBUG] EXITING function: do_kw_test 
+[2025-09-03 15:32:07] [INFO] Running Pearson correlation test...
+[2025-09-03 15:32:07] [DEBUG] ENTERING function: do_pearson_test - Variables: 93
+[2025-09-03 15:32:07] [INFO] Running Pearson correlation tests on 93 variables
+[2025-09-03 15:32:07] [INFO] Outcome variable: gsslope
+[2025-09-03 15:32:11] [INFO] Pearson correlation completed: 93 tests performed
+[2025-09-03 15:32:11] [INFO] Significant correlations (p < 0.05): 12
+[2025-09-03 15:32:11] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:32:11] [INFO] Strong correlations (|r| > 0.5): 0
+[2025-09-03 15:32:11] [DEBUG] EXITING function: do_pearson_test 
+[2025-09-03 15:32:11] [INFO] Running Spearman correlation test...
+[2025-09-03 15:32:11] [DEBUG] ENTERING function: do_spearman_test - Variables: 93
+[2025-09-03 15:32:11] [INFO] Running Spearman correlation tests on 93 variables
+[2025-09-03 15:32:11] [INFO] Outcome variable: gsslope
+[2025-09-03 15:32:15] [INFO] Spearman correlation completed: 93 tests performed
+[2025-09-03 15:32:15] [INFO] Significant correlations (p < 0.05): 8
+[2025-09-03 15:32:15] [INFO] FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:32:15] [INFO] Strong correlations (|rho| > 0.5): 0
+[2025-09-03 15:32:15] [DEBUG] EXITING function: do_spearman_test 
+[2025-09-03 15:32:15] [INFO] Running linear regression analysis...
+[2025-09-03 15:32:15] [DEBUG] ENTERING function: do_lr - Variables: 93
+[2025-09-03 15:32:15] [INFO] Running linear regression on 93 variables
+[2025-09-03 15:32:15] [INFO] Outcome variable: gsslope
+[2025-09-03 15:32:15] [INFO] Covariates: age, sex, bmi, gs
+[2025-09-03 15:32:15] [INFO] Remove influential observations: TRUE
+[2025-09-03 15:32:16] [INFO] Linear regression completed: 93 models fitted
+[2025-09-03 15:32:16] [INFO] Significant coefficients (p < 0.05): 13
+[2025-09-03 15:32:16] [INFO] Total influential observations removed: 2336
+[2025-09-03 15:32:16] [INFO] Significant coefficients after removing influential obs: 15
+[2025-09-03 15:32:16] [DEBUG] EXITING function: do_lr 
+[2025-09-03 15:32:16] [DEBUG] ENTERING function: generate_lr_formula 
+[2025-09-03 15:32:16] [INFO] Added covariates to formula: age, sex, bmi, gs
+[2025-09-03 15:32:16] [INFO] Added omics variables indicator to formula: omics_variables (93 variables)
+[2025-09-03 15:32:16] [INFO] Generated formula: gsslope ~ age + sex + bmi + gs + omics_variables (93 variables)
+[2025-09-03 15:32:16] [DEBUG] EXITING function: generate_lr_formula 
+[2025-09-03 15:32:16] [INFO] === STARTING MULTIVARIATE ANALYSIS ===
+[2025-09-03 15:32:16] [INFO] === MULTIVARIATE ANALYSIS CONFIGURATION ===
+[2025-09-03 15:32:16] [INFO] Ridge enabled: TRUE
+[2025-09-03 15:32:16] [INFO] Lasso enabled: TRUE
+[2025-09-03 15:32:16] [INFO] ElasticNet enabled: TRUE
+[2025-09-03 15:32:16] [INFO] RandomForest enabled: TRUE
+[2025-09-03 15:32:16] [INFO] Boruta enabled: TRUE
+[2025-09-03 15:32:16] [INFO] RFE enabled: TRUE
+[2025-09-03 15:32:16] [INFO] === RFE CONFIGURATION DETAILS ===
+[2025-09-03 15:32:16] [INFO] RFE subsetSizeType: automatic
+[2025-09-03 15:32:16] [INFO] RFE metric: rmse
+[2025-09-03 15:32:16] [INFO] RFE includeCovariates: FALSE
+[2025-09-03 15:32:16] [INFO] RFE customSubsetSizes type: character
+[2025-09-03 15:32:16] [INFO] RFE customSubsetSizes value: 
+[2025-09-03 15:32:16] [INFO] === END RFE CONFIGURATION ===
+[2025-09-03 15:32:16] [INFO] === END MULTIVARIATE CONFIGURATION ===
+[2025-09-03 15:32:16] [INFO] Preparing data for Ridge regression...
+[2025-09-03 15:32:16] [DEBUG] ENTERING function: prepare_mv_dataset 
+[2025-09-03 15:32:16] [INFO] Preparing multivariate dataset from 654 × 100 input
+[2025-09-03 15:32:16] [INFO] Removing columns: ID , group
+[2025-09-03 15:32:16] [INFO] Removing covariates: age, sex, bmi, gs
+[2025-09-03 15:32:16] [INFO] Final dataset dimensions: 654 × 94
+[2025-09-03 15:32:16] [DEBUG] EXITING function: prepare_mv_dataset 
+[2025-09-03 15:32:16] [INFO] Data info for ridge_dataset :
+[2025-09-03 15:32:16] [INFO]   Dimensions: 654 rows x 94 columns
+[2025-09-03 15:32:16] [INFO]   Column names: gsslope, CTSF, MATN2, MFGE8, ACAN, ITGB1, DKK3, SPINT2, APP, HAVCR2 ...
+[2025-09-03 15:32:16] [INFO]   No missing values detected
+[2025-09-03 15:32:16] [DEBUG] ENTERING function: do_ridge - Features: 93
+[2025-09-03 15:32:16] [INFO] Running Ridge regression with cross-validation
+[2025-09-03 15:32:16] [INFO] Lambda selection: automatic
+[2025-09-03 15:32:16] [INFO] Metric for optimization: rmse
+[2025-09-03 15:32:16] [INFO] Selection rule: min
+[2025-09-03 15:32:16] [INFO] Using automatic lambda grid: 50 values from 10^-2 to 10^2
+[2025-09-03 15:32:16] [INFO] Starting Ridge regression cross-validation...
+[2025-09-03 15:32:20] [INFO] Ridge regression completed
+[2025-09-03 15:32:20] [INFO] Optimal lambda: 4.941713
+[2025-09-03 15:32:20] [INFO] Best RMSE : 0.9924
+[2025-09-03 15:32:20] [INFO] Non-zero coefficients: 93 out of 93
+[2025-09-03 15:32:20] [DEBUG] EXITING function: do_ridge 
+[2025-09-03 15:32:20] [INFO] Preparing data for Lasso regression...
+[2025-09-03 15:32:20] [DEBUG] ENTERING function: prepare_mv_dataset 
+[2025-09-03 15:32:20] [INFO] Preparing multivariate dataset from 654 × 100 input
+[2025-09-03 15:32:20] [INFO] Removing columns: ID , group
+[2025-09-03 15:32:20] [INFO] Removing covariates: age, sex, bmi, gs
+[2025-09-03 15:32:20] [INFO] Final dataset dimensions: 654 × 94
+[2025-09-03 15:32:20] [DEBUG] EXITING function: prepare_mv_dataset 
+[2025-09-03 15:32:20] [INFO] Data info for lasso_dataset :
+[2025-09-03 15:32:20] [INFO]   Dimensions: 654 rows x 94 columns
+[2025-09-03 15:32:20] [INFO]   Column names: gsslope, CTSF, MATN2, MFGE8, ACAN, ITGB1, DKK3, SPINT2, APP, HAVCR2 ...
+[2025-09-03 15:32:20] [INFO]   No missing values detected
+[2025-09-03 15:32:20] [DEBUG] ENTERING function: do_lasso - Features: 93
+[2025-09-03 15:32:20] [INFO] Running Lasso regression with cross-validation
+[2025-09-03 15:32:20] [INFO] Lambda selection: automatic
+[2025-09-03 15:32:20] [INFO] Metric for optimization: rmse
+[2025-09-03 15:32:20] [INFO] Selection rule: min
+[2025-09-03 15:32:20] [INFO] Using automatic lambda grid: 50 values from 10^-2 to 10^2
+[2025-09-03 15:32:20] [INFO] Starting Lasso regression cross-validation...
+[2025-09-03 15:32:25] [INFO] Lasso regression completed
+[2025-09-03 15:32:25] [INFO] Optimal lambda: 0.065513
+[2025-09-03 15:32:25] [INFO] Best RMSE : 0.9914
+[2025-09-03 15:32:25] [INFO] Selected variables: 7 out of 93
+[2025-09-03 15:32:25] [DEBUG] EXITING function: do_lasso 
+[2025-09-03 15:32:25] [INFO] Preparing data for Elastic Net regression...
+[2025-09-03 15:32:25] [DEBUG] ENTERING function: prepare_mv_dataset 
+[2025-09-03 15:32:25] [INFO] Preparing multivariate dataset from 654 × 100 input
+[2025-09-03 15:32:25] [INFO] Removing columns: ID , group
+[2025-09-03 15:32:25] [INFO] Removing covariates: age, sex, bmi, gs
+[2025-09-03 15:32:25] [INFO] Final dataset dimensions: 654 × 94
+[2025-09-03 15:32:25] [DEBUG] EXITING function: prepare_mv_dataset 
+[2025-09-03 15:32:25] [INFO] Data info for elasticnet_dataset :
+[2025-09-03 15:32:25] [INFO]   Dimensions: 654 rows x 94 columns
+[2025-09-03 15:32:25] [INFO]   Column names: gsslope, CTSF, MATN2, MFGE8, ACAN, ITGB1, DKK3, SPINT2, APP, HAVCR2 ...
+[2025-09-03 15:32:25] [INFO]   No missing values detected
+[2025-09-03 15:32:25] [DEBUG] ENTERING function: do_enet - Features: 93
+[2025-09-03 15:32:25] [INFO] Running Elastic Net regression with cross-validation
+[2025-09-03 15:32:25] [INFO] Lambda selection: automatic
+[2025-09-03 15:32:25] [INFO] Metric for optimization: rmse
+[2025-09-03 15:32:25] [INFO] Selection rule: min
+[2025-09-03 15:32:25] [INFO] Using automatic grid: 10 alpha values × 50 lambda values
+[2025-09-03 15:32:25] [INFO] Starting Elastic Net cross-validation...
+[2025-09-03 15:33:06] [INFO] Elastic Net regression completed
+[2025-09-03 15:33:06] [INFO] Optimal lambda: 0.167683
+[2025-09-03 15:33:06] [INFO] Optimal alpha: 0.4
+[2025-09-03 15:33:06] [INFO] Best RMSE : 0.9913
+[2025-09-03 15:33:06] [INFO] Selected variables: 7 out of 93
+[2025-09-03 15:33:06] [DEBUG] EXITING function: do_enet 
+[2025-09-03 15:33:06] [INFO] Preparing data for Random Forest...
+[2025-09-03 15:33:06] [DEBUG] ENTERING function: prepare_mv_dataset 
+[2025-09-03 15:33:06] [INFO] Preparing multivariate dataset from 654 × 100 input
+[2025-09-03 15:33:06] [INFO] Removing columns: ID , group
+[2025-09-03 15:33:06] [INFO] Removing covariates: age, sex, bmi, gs
+[2025-09-03 15:33:06] [INFO] Final dataset dimensions: 654 × 94
+[2025-09-03 15:33:06] [DEBUG] EXITING function: prepare_mv_dataset 
+[2025-09-03 15:33:06] [INFO] Data info for randomforest_dataset :
+[2025-09-03 15:33:06] [INFO]   Dimensions: 654 rows x 94 columns
+[2025-09-03 15:33:06] [INFO]   Column names: gsslope, CTSF, MATN2, MFGE8, ACAN, ITGB1, DKK3, SPINT2, APP, HAVCR2 ...
+[2025-09-03 15:33:06] [INFO]   No missing values detected
+[2025-09-03 15:33:06] [DEBUG] ENTERING function: do_rf - Features: 93
+[2025-09-03 15:33:06] [INFO] Running Random Forest with cross-validation
+[2025-09-03 15:33:06] [INFO] Number of trees: 500
+[2025-09-03 15:33:06] [INFO] mtry optimization: automatic
+[2025-09-03 15:33:06] [INFO] Using automatic mtry: 31
+[2025-09-03 15:33:06] [INFO] Starting Random Forest cross-validation...
+[2025-09-03 15:34:03] [INFO] Random Forest completed
+[2025-09-03 15:34:03] [INFO] Optimal mtry: 31
+[2025-09-03 15:34:03] [INFO] Best RMSE: 1.0009
+[2025-09-03 15:34:03] [INFO] Top 5 important variables: ADGRE5, DKK3, CA2, IGFBP6, PTPRF
+[2025-09-03 15:34:03] [DEBUG] EXITING function: do_rf 
+[2025-09-03 15:34:03] [INFO] Preparing data for Boruta feature selection...
+[2025-09-03 15:34:03] [DEBUG] ENTERING function: prepare_mv_dataset 
+[2025-09-03 15:34:03] [INFO] Preparing multivariate dataset from 654 × 100 input
+[2025-09-03 15:34:03] [INFO] Removing columns: ID , group
+[2025-09-03 15:34:03] [INFO] Removing covariates: age, sex, bmi, gs
+[2025-09-03 15:34:03] [INFO] Final dataset dimensions: 654 × 94
+[2025-09-03 15:34:03] [DEBUG] EXITING function: prepare_mv_dataset 
+[2025-09-03 15:34:03] [INFO] Data info for boruta_dataset :
+[2025-09-03 15:34:03] [INFO]   Dimensions: 654 rows x 94 columns
+[2025-09-03 15:34:03] [INFO]   Column names: gsslope, CTSF, MATN2, MFGE8, ACAN, ITGB1, DKK3, SPINT2, APP, HAVCR2 ...
+[2025-09-03 15:34:03] [INFO]   No missing values detected
+[2025-09-03 15:34:03] [DEBUG] ENTERING function: do_boruta - Features: 93
+[2025-09-03 15:34:03] [INFO] Running Boruta feature selection
+[2025-09-03 15:34:03] [INFO] Number of trees: 500
+[2025-09-03 15:34:03] [INFO] Maximum runs: 100
+[2025-09-03 15:34:03] [INFO] Rough fix tentative features: TRUE
+[2025-09-03 15:34:03] [INFO] Using automatic mtry: 31
+[2025-09-03 15:34:03] [INFO] Starting Boruta feature selection...
+[2025-09-03 15:34:46] [INFO] Applying TentativeRoughFix to resolve tentative features
+[2025-09-03 15:34:46] [INFO] Boruta feature selection completed
+[2025-09-03 15:34:46] [INFO] Confirmed features: 7
+[2025-09-03 15:34:46] [INFO] Rejected features: 86
+[2025-09-03 15:34:46] [INFO] Tentative features: 0
+[2025-09-03 15:34:46] [INFO] Selected variables: 7
+[2025-09-03 15:34:46] [INFO] Iterations completed: 1
+[2025-09-03 15:34:46] [INFO] Top selected features: CLEC11A, PTPRF, ADGRE5, MIF, SEMA7A
+[2025-09-03 15:34:46] [DEBUG] EXITING function: do_boruta 
+[2025-09-03 15:34:46] [INFO] === RFE EXECUTION CHECK ===
+[2025-09-03 15:34:46] [INFO] RFE enabled status: TRUE
+[2025-09-03 15:34:46] [INFO] Dataset has missing values: FALSE
+[2025-09-03 15:34:46] [INFO] Number of missing values in dataset: 0
+[2025-09-03 15:34:46] [INFO] === END RFE EXECUTION CHECK ===
+[2025-09-03 15:34:46] [INFO] Preparing data for Recursive Feature Elimination...
+[2025-09-03 15:34:46] [INFO] === RFE DIAGNOSTICS START ===
+[2025-09-03 15:34:46] [INFO] RFE enabled: TRUE
+[2025-09-03 15:34:46] [INFO] RFE subsetSizeType: automatic
+[2025-09-03 15:34:46] [INFO] RFE metric: rmse
+[2025-09-03 15:34:46] [INFO] RFE includeCovariates: FALSE
+[2025-09-03 15:34:46] [DEBUG] ENTERING function: prepare_mv_dataset 
+[2025-09-03 15:34:46] [INFO] Preparing multivariate dataset from 654 × 100 input
+[2025-09-03 15:34:46] [INFO] Removing columns: ID , group
+[2025-09-03 15:34:46] [INFO] Removing covariates: age, sex, bmi, gs
+[2025-09-03 15:34:46] [INFO] Final dataset dimensions: 654 × 94
+[2025-09-03 15:34:46] [DEBUG] EXITING function: prepare_mv_dataset 
+[2025-09-03 15:34:46] [INFO] Data info for rfe_dataset :
+[2025-09-03 15:34:46] [INFO]   Dimensions: 654 rows x 94 columns
+[2025-09-03 15:34:46] [INFO]   Column names: gsslope, CTSF, MATN2, MFGE8, ACAN, ITGB1, DKK3, SPINT2, APP, HAVCR2 ...
+[2025-09-03 15:34:46] [INFO]   No missing values detected
+[2025-09-03 15:34:46] [INFO] Raw customSubsetSizes type: character
+[2025-09-03 15:34:46] [INFO] Raw customSubsetSizes length: 1
+[2025-09-03 15:34:46] [INFO] Raw customSubsetSizes content: 
+[2025-09-03 15:34:46] [INFO] Converting custom subset sizes from string format
+[2025-09-03 15:34:46] [INFO] String value: 
+[2025-09-03 15:34:46] [INFO] After string conversion: 
+[2025-09-03 15:34:46] [INFO] Final custom_sizes before RFE: 
+[2025-09-03 15:34:46] [INFO] === RFE DIAGNOSTICS END ===
+[2025-09-03 15:34:46] [DEBUG] ENTERING function: do_rfe - Features: 93
+[2025-09-03 15:34:46] [INFO] Running Recursive Feature Elimination (RFE)
+[2025-09-03 15:34:46] [INFO] Subset selection method: automatic
+[2025-09-03 15:34:46] [INFO] Metric for optimization: rmse
+[2025-09-03 15:34:46] [INFO] Input data dimensions: 654 rows x 94 columns
+[2025-09-03 15:34:46] [INFO] Outcome variable: gsslope
+[2025-09-03 15:34:46] [INFO] Original subset_selection: automatic
+[2025-09-03 15:34:46] [INFO] Original my_subset_size type: numeric
+[2025-09-03 15:34:46] [INFO] Original my_subset_size length: 0
+[2025-09-03 15:34:46] [INFO] Original my_subset_size values: 
+[2025-09-03 15:34:46] [INFO] Formula: gsslope ~ .
+[2025-09-03 15:34:46] [INFO] Maximum available features for automatic selection: 93
+[2025-09-03 15:34:46] [INFO] Using automatic subset sizes: 5, 10, 15, 20, 25, 35, 50, 65
+[2025-09-03 15:34:46] [INFO] Final metric: RMSE
+[2025-09-03 15:34:46] [INFO] Outcome variable summary:
+[2025-09-03 15:34:46] [INFO]   Class: numeric
+[2025-09-03 15:34:46] [INFO]   Length: 654
+[2025-09-03 15:34:46] [INFO]   Unique values: 608
+[2025-09-03 15:34:46] [INFO]   Missing values: 0
+[2025-09-03 15:34:46] [INFO]   Range: -2.67463470268903 to 2.62732612686973
+[2025-09-03 15:34:46] [INFO] Number of predictor variables: 93
+[2025-09-03 15:34:46] [INFO] RFE control settings:
+[2025-09-03 15:34:46] [INFO]   Method: cv
+[2025-09-03 15:34:46] [INFO]   Number of folds: 10
+[2025-09-03 15:34:46] [INFO]   Functions: rfFuncs
+[2025-09-03 15:34:46] [INFO] Starting RFE cross-validation...
+[2025-09-03 15:34:46] [INFO] Testing subset sizes: 5, 10, 15, 20, 25, 35, 50, 65
+[2025-09-03 15:38:08] [INFO] RFE execution completed successfully
+[2025-09-03 15:38:08] [INFO] RFE results structure:
+[2025-09-03 15:38:08] [INFO]   Optimal size: 93
+[2025-09-03 15:38:08] [INFO]   Number of selected variables: 93
+[2025-09-03 15:38:08] [INFO] Best RMSE : 1.0039
+[2025-09-03 15:38:08] [INFO] RFE completed
+[2025-09-03 15:38:08] [INFO] Optimal subset size: 93
+[2025-09-03 15:38:08] [INFO] Selected variables: 93
+[2025-09-03 15:38:08] [INFO] Top selected features: ADGRE5, CA1, SEMA7A, RELT, PTPRF
+[2025-09-03 15:38:08] [DEBUG] EXITING function: do_rfe 
+[2025-09-03 15:38:08] [INFO] RFE analysis completed successfully
+[2025-09-03 15:38:08] [INFO] RFE results stored successfully
+[2025-09-03 15:38:08] [INFO] === CREATING SUMMARY RESULTS ===
+[2025-09-03 15:38:09] [DEBUG] ENTERING function: create_summary_results 
+[2025-09-03 15:38:09] [INFO] Added 7 significant results from student-t
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 7
+[2025-09-03 15:38:09] [INFO] Added 7 significant results from welch-t
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 14
+[2025-09-03 15:38:09] [INFO] Added 8 significant results from wilcoxon
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 22
+[2025-09-03 15:38:09] [INFO] Added 7 significant results from anova
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 29
+[2025-09-03 15:38:09] [INFO] Added 7 significant results from welch-anova
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 36
+[2025-09-03 15:38:09] [INFO] Added 7 significant results from kruskal-wallis
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 43
+[2025-09-03 15:38:09] [INFO] Added 12 significant results from pearson
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 55
+[2025-09-03 15:38:09] [INFO] Added 8 significant results from spearman
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 63
+[2025-09-03 15:38:09] [INFO] Added 13 significant results from linearregression
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 76
+[2025-09-03 15:38:09] [INFO] Processing regularization method: ridge with 93 features
+[2025-09-03 15:38:09] [INFO] Available columns in ridge data: Variable, Coefficient, importance, sign
+[2025-09-03 15:38:09] [INFO] ridge : max coefficient = 0.014949 , threshold = 0.000149
+[2025-09-03 15:38:09] [INFO] ridge : selected 50 features above threshold
+[2025-09-03 15:38:09] [INFO] Added 50 selected features from ridge
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 126
+[2025-09-03 15:38:09] [INFO] Processing regularization method: lasso with 93 features
+[2025-09-03 15:38:09] [INFO] Available columns in lasso data: Variable, Coefficient, importance, sign
+[2025-09-03 15:38:09] [INFO] LASSO: filtering for non-zero coefficients from 93 features
+[2025-09-03 15:38:09] [INFO] LASSO: selected 7 non-zero features
+[2025-09-03 15:38:09] [INFO] Added 7 selected features from lasso
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 133
+[2025-09-03 15:38:09] [INFO] Processing regularization method: elasticNet with 93 features
+[2025-09-03 15:38:09] [INFO] Available columns in elasticNet data: Variable, Coefficient, importance, sign
+[2025-09-03 15:38:09] [INFO] elasticNet : max coefficient = 0.03584 , threshold = 0.000358
+[2025-09-03 15:38:09] [INFO] elasticNet : selected 7 features above threshold
+[2025-09-03 15:38:09] [INFO] Added 7 selected features from elasticNet
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 140
+[2025-09-03 15:38:09] [INFO] Added 30 selected features from randomForest
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 170
+[2025-09-03 15:38:09] [INFO] Added 7 selected features from boruta
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 177
+[2025-09-03 15:38:09] [INFO] Added 71 selected features from rfe
+[2025-09-03 15:38:09] [INFO] Total summary rows so far: 248
+[2025-09-03 15:38:09] [INFO] Summary results created with 248 total feature-method combinations
+[2025-09-03 15:38:09] [INFO] Unique features: 80
+[2025-09-03 15:38:09] [INFO] Features in multiple methods: 55
+[2025-09-03 15:38:09] [INFO] Plot summary contains 50 top features
+[2025-09-03 15:38:09] [INFO] === PLOT SUMMARY BREAKDOWN ===
+[2025-09-03 15:38:09] [INFO] Feature 1 : MIF - frequency: 15 - methods: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, pearson, spearman, linearregression, ridge, lasso, elasticNet, randomForest, boruta, rfe
+[2025-09-03 15:38:09] [INFO] Feature 2 : ADGRE5 - frequency: 15 - methods: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, pearson, spearman, linearregression, ridge, lasso, elasticNet, randomForest, boruta, rfe
+[2025-09-03 15:38:09] [INFO] Feature 3 : CA2 - frequency: 14 - methods: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, pearson, spearman, linearregression, ridge, lasso, elasticNet, randomForest, rfe
+[2025-09-03 15:38:09] [INFO] Feature 4 : CR2 - frequency: 14 - methods: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, pearson, spearman, linearregression, ridge, lasso, elasticNet, randomForest, rfe
+[2025-09-03 15:38:09] [INFO] Feature 5 : SPINT2 - frequency: 13 - methods: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, pearson, spearman, linearregression, ridge, lasso, elasticNet, rfe
+[2025-09-03 15:38:09] [INFO] Feature 6 : MATN2 - frequency: 12 - methods: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, pearson, spearman, ridge, lasso, elasticNet, randomForest
+[2025-09-03 15:38:09] [INFO] Feature 7 : HAVCR2 - frequency: 9 - methods: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, spearman, ridge, rfe
+[2025-09-03 15:38:09] [INFO] Feature 8 : MSMB - frequency: 7 - methods: pearson, linearregression, ridge, lasso, elasticNet, randomForest, rfe
+[2025-09-03 15:38:09] [INFO] Feature 9 : PARK7 - frequency: 5 - methods: pearson, spearman, linearregression, ridge, rfe
+[2025-09-03 15:38:09] [INFO] Feature 10 : MESD - frequency: 4 - methods: pearson, linearregression, ridge, rfe
+[2025-09-03 15:38:09] [INFO] === END PLOT SUMMARY BREAKDOWN ===
+[2025-09-03 15:38:09] [DEBUG] EXITING function: create_summary_results 
+[2025-09-03 15:38:09] [INFO] Summary results created with 248 feature-method combinations
+[2025-09-03 15:38:09] [INFO] Plot summary contains 50 top features
+[2025-09-03 15:38:09] [INFO] === ANALYSIS COMPLETED ===
+[2025-09-03 15:38:09] [INFO] Total analysis duration: 376.24 seconds
+[2025-09-03 15:38:09] [INFO] Number of analysis types completed: 15
+[2025-09-03 15:38:09] [INFO] Analysis methods run: student-t, welch-t, wilcoxon, anova, welch-anova, kruskal-wallis, pearson, spearman, linearregression, ridge, lasso, elasticNet, randomForest, boruta, rfe
+[2025-09-03 15:38:09] [INFO] Total significant results (p < 0.05): 76
+[2025-09-03 15:38:09] [INFO] Total FDR significant results (FDR < 0.05): 0
+[2025-09-03 15:38:09] [DEBUG] EXITING function: main_analysis - Duration: 376.24 sec
+[2025-09-03 15:38:09] [INFO] Analysis completed successfully
+[2025-09-03 15:38:09] [INFO] === GENERATING OUTPUT ===
+[2025-09-03 15:38:09] [INFO] JSON output size: 2661742 characters
+[2025-09-03 15:38:09] [INFO] Analysis completed successfully - outputting results
+[2025-09-03 15:38:09] [INFO] === ANALYSIS SCRIPT FINISHED ===

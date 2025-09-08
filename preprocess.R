@@ -221,7 +221,10 @@ input_file <- input_data$input_file
 output_dir <- input_data$output_dir
 options <- input_data$options
 
-tryCatch({
+# Initialize result variable
+result <- NULL
+
+result <- tryCatch({
   # Leggi il file di input in base al tipo (rimuovere e tenere solo CSV?)
   file_ext <- tolower(tools::file_ext(input_file))
   
@@ -248,7 +251,7 @@ tryCatch({
   write_csv(processed_data, output_file)
   
   # Return success result
-  result <- list(
+  list(
     success = TRUE,
     message = "Data preprocessing completato con successo",
     processed_file_path = output_file,
@@ -269,7 +272,7 @@ tryCatch({
   )
   
 }, error = function(e) {
-  result <- list(
+  list(
     success = FALSE,
     message = paste("Preprocessing fallito:", e$message),
     processed_file_path = NULL,

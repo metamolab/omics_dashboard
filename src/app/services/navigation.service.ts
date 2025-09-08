@@ -11,7 +11,7 @@ export class NavigationService {
   private navItems: NavItem[] = [
     {
       id: 'upload',
-      label: 'Carica File',
+      label: 'Selezione Dati',
       icon: '📊',
       route: '/dashboard/upload',
       status: 'pending'

@@ -18,6 +18,15 @@ export class SessionService {
     this.initializeSession();
   }
 
+  /**
+   * Update the user ID from external source (e.g., API authentication)
+   */
+  updateUserId(userId: string) {
+    console.log('[SESSION] Updating userId from:', this.currentUserId, 'to:', userId);
+    this.currentUserId = userId;
+    sessionStorage.setItem(this.USER_ID_KEY, userId);
+  }
+
   private initializeSession() {
     // console.log('[SESSION] Initializing session service');
     

@@ -348,6 +348,45 @@ do_spearman_test <- function(data, outcome, omics_vars) {
   return(list("results" = spearman_results))
 }
 
+# Function to generate linear regression formula string
+generate_lr_formula <- function(outcome, covariates, omics_vars) {
+  log_function("generate_lr_formula", "ENTER")
+  
+  # Build formula components
+  formula_parts <- c()
+  
+  # Add covariates if present
+  if (!is.null(covariates) && length(covariates) > 0) {
+    formula_parts <- c(formula_parts, covariates)
+    write_log(paste("Added covariates to formula:", paste(covariates, collapse = ", ")))
+  }
+  
+  # Add indication of omics variables
+  if (!is.null(omics_vars) && length(omics_vars) > 0) {
+    if (length(omics_vars) <= 3) {
+      # Show actual names if only a few
+      formula_parts <- c(formula_parts, omics_vars)
+      write_log(paste("Added omics variables to formula:", paste(omics_vars, collapse = ", ")))
+    } else {
+      # Show count if many
+      omics_indicator <- paste0("omics_variables (", length(omics_vars), " variables)")
+      formula_parts <- c(formula_parts, omics_indicator)
+      write_log(paste("Added omics variables indicator to formula:", omics_indicator))
+    }
+  }
+  
+  # Construct final formula
+  if (length(formula_parts) > 0) {
+    formula_string <- paste0(outcome, " ~ ", paste(formula_parts, collapse = " + "))
+  } else {
+    formula_string <- paste0(outcome, " ~ 1")  # Intercept only
+  }
+  
+  write_log(paste("Generated formula:", formula_string))
+  log_function("generate_lr_formula", "EXIT")
+  return(formula_string)
+}
+
 do_lr <- function(data, outcome, covariates, omics_vars, remove_infl) {
   log_function("do_lr", "ENTER", paste("- Variables:", length(omics_vars)))
   
@@ -1083,9 +1122,13 @@ do_rfe <- function(data, outcome, subset_selection, my_subset_size, metric) {
 }
 
 # Function to create summary results tibble
+# Function to create summary results tibble
 create_summary_results <- function(results_data) {
   log_function("create_summary_results", "ENTER")
   
+  # Add error handling for the entire function
+  tryCatch({
+    
   summary_tibble <- tibble(
     feature = character(),
     method = character(),
@@ -1096,7 +1139,8 @@ create_summary_results <- function(results_data) {
     coefficient = numeric(),
     importance = numeric(),
     decision = character(),
-    significance_level = character()
+    significance_level = character(),
+    frequency = numeric()
   )
   
   # Define bivariate and multivariate methods
@@ -1107,66 +1151,90 @@ create_summary_results <- function(results_data) {
   # Process bivariate methods - extract significant results (p < 0.05)
   for (method in names(results_data)) {
     if (method %in% bivariate_methods) {
-      method_data <- results_data[[method]]$data
-      
-      if (!is.null(method_data) && nrow(method_data) > 0) {
-        # Check if pValue column exists
-        if ("pValue" %in% names(method_data)) {
+      tryCatch({
+        method_data <- results_data[[method]]$data
+        
+        if (!is.null(method_data) && nrow(method_data) > 0) {
+          # Check if pValue column exists
+          pvalue_col <- if ("pValue" %in% names(method_data)) "pValue" else if ("p.value" %in% names(method_data)) "p.value" else NULL
+          
+          if (!is.null(pvalue_col)) {
           # Add fdr column if it doesn't exist
           if (!"fdr" %in% names(method_data)) {
-            method_data$fdr <- p.adjust(method_data$pValue, method = "fdr")
+            method_data$fdr <- p.adjust(method_data[[pvalue_col]], method = "fdr")
           }
           
-          # Filter for significant results (p < 0.05)
+          # Filter for significant results (p < 0.05) and deduplicate by Variable
           sig_results <- method_data %>%
-            dplyr::filter(!is.na(pValue) & pValue < 0.05) %>%
-            mutate(
-              feature = ifelse("Variable" %in% names(.), Variable, 
-                             ifelse("feature" %in% names(.), feature, row_number())),
-              method = method,
-              method_type = "bivariate",
-              statistic = ifelse("statistic" %in% names(.), statistic, NA_real_),
-              coefficient = ifelse("estimate" %in% names(.), estimate, 
-                                 ifelse("coefficient" %in% names(.), coefficient, NA_real_)),
-              importance = NA_real_,
-              decision = NA_character_,
-              significance_level = case_when(
-                pValue < 0.001 ~ "highly_significant",
-                pValue < 0.01 ~ "very_significant", 
-                pValue < 0.05 ~ "significant",
-                TRUE ~ "not_significant"
-              )
-            ) %>%
-            # Safely select only columns that exist
-            select(any_of(c("feature", "method", "method_type", "pValue", "fdr", "statistic", 
-                          "coefficient", "importance", "decision", "significance_level")))
+            dplyr::filter(!is.na(!!sym(pvalue_col)) & !!sym(pvalue_col) < 0.05) %>%
+            # Get unique features only (in case of duplicates)
+            group_by(Variable) %>%
+            slice_min(!!sym(pvalue_col), n = 1, with_ties = FALSE) %>%
+            ungroup()
+          
+          # Add required columns using standard assignment
+          sig_results$feature <- sig_results$Variable
+          sig_results$method <- method
+          sig_results$method_type <- "bivariate"
+          sig_results$pValue <- sig_results[[pvalue_col]]
+          sig_results$fdr <- if("fdr" %in% names(sig_results)) sig_results$fdr else NA_real_
+          sig_results$statistic <- if("statistic" %in% names(sig_results)) sig_results$statistic else NA_real_
+          
+          # Handle coefficient column assignment
+          if("estimate" %in% names(sig_results)) {
+            sig_results$coefficient <- sig_results$estimate
+          } else if("coefficient" %in% names(sig_results)) {
+            sig_results$coefficient <- sig_results$coefficient
+          } else if("cor" %in% names(sig_results)) {
+            sig_results$coefficient <- sig_results$cor
+          } else {
+            sig_results$coefficient <- NA_real_
+          }
+          
+          sig_results$importance <- NA_real_
+          sig_results$decision <- NA_character_
+          
+          # Handle significance level assignment
+          sig_results$significance_level <- ifelse(sig_results[[pvalue_col]] < 0.001, "highly_significant",
+                                                  ifelse(sig_results[[pvalue_col]] < 0.01, "very_significant",
+                                                        ifelse(sig_results[[pvalue_col]] < 0.05, "significant", "not_significant")))
+          sig_results$frequency <- 1
+          
+          # Select only required columns
+          sig_results <- sig_results %>%
+            select(feature, method, method_type, pValue, fdr, statistic, 
+                   coefficient, importance, decision, significance_level, frequency)
           
           summary_tibble <- bind_rows(summary_tibble, sig_results)
           write_log(paste("Added", nrow(sig_results), "significant results from", method))
+          write_log(paste("Total summary rows so far:", nrow(summary_tibble)))
         } else {
           write_log(paste("Method", method, "does not have pValue column, skipping"), "WARN")
         }
       }
+      }, error = function(e) {
+        write_log(paste("Error processing bivariate method", method, ":", e$message), "ERROR")
+      })
     }
   }
   
   # Process multivariate methods - extract selected features
   for (method in names(results_data)) {
     if (method %in% multivariate_methods) {
-      method_data <- results_data[[method]]$data
+      tryCatch({
+        method_data <- results_data[[method]]$data
       
       if (!is.null(method_data) && nrow(method_data) > 0) {
         if (method == "boruta") {
-          # For Boruta, select confirmed features - handle both lowercase and capitalized column names
+          # For Boruta, select confirmed features only
           decision_col <- if("decision" %in% names(method_data)) "decision" else if("Decision" %in% names(method_data)) "Decision" else NULL
-          importance_col <- if("importance" %in% names(method_data)) "importance" else if("Importance" %in% names(method_data)) "Importance" else NULL
+          importance_col <- if("meanImp" %in% names(method_data)) "meanImp" else if("importance" %in% names(method_data)) "importance" else if("Importance" %in% names(method_data)) "Importance" else NULL
           
           if (!is.null(decision_col)) {
             selected_results <- method_data %>%
               filter(!is.na(!!sym(decision_col)) & (!!sym(decision_col) == "Confirmed")) %>%
               mutate(
-                feature = ifelse("feature" %in% names(.), feature, 
-                               ifelse("Variable" %in% names(.), Variable, row_number())),
+                feature = Variable,
                 method = method,
                 method_type = "multivariate",
                 pValue = NA_real_,
@@ -1175,116 +1243,270 @@ create_summary_results <- function(results_data) {
                 coefficient = NA_real_,
                 importance = if(!is.null(importance_col)) !!sym(importance_col) else NA_real_,
                 decision = !!sym(decision_col),
-                significance_level = "confirmed"
+                significance_level = "confirmed",
+                frequency = 1
               ) %>%
-              select(any_of(c("feature", "method", "method_type", "pValue", "fdr", "statistic", 
-                            "coefficient", "importance", "decision", "significance_level")))
+              select(feature, method, method_type, pValue, fdr, statistic, 
+                     coefficient, importance, decision, significance_level, frequency)
           } else {
             write_log(paste("Boruta method missing decision column, skipping"), "WARN")
             selected_results <- data.frame()
           }
             
         } else if (method %in% c("ridge", "lasso", "elasticNet")) {
-          # For regularization methods, select features with non-zero coefficients
-          selected_results <- method_data %>%
-            filter(!is.na(coefficient) & abs(coefficient) > 0) %>%
-            mutate(
-              feature = ifelse("feature" %in% names(.), feature, 
-                             ifelse("Variable" %in% names(.), Variable, row_number())),
-              method = method,
-              method_type = "multivariate",
-              pValue = NA_real_,
-              fdr = NA_real_,
-              statistic = NA_real_,
-              coefficient = ifelse("coefficient" %in% names(.), coefficient, estimate),
-              importance = NA_real_,
-              decision = "selected",
-              significance_level = "selected"
-            ) %>%
-            select(any_of(c("feature", "method", "method_type", "pValue", "fdr", "statistic", 
-                          "coefficient", "importance", "decision", "significance_level")))
+          # For regularization methods, select features with substantial non-zero coefficients
+          # Use a more meaningful threshold than just > 0
+          write_log(paste("Processing regularization method:", method, "with", nrow(method_data), "features"))
+          write_log(paste("Available columns in", method, "data:", paste(names(method_data), collapse = ", ")))
+          
+          coef_col <- if ("Coefficient" %in% names(method_data)) {
+            "Coefficient"
+          } else if ("coefficient" %in% names(method_data)) {
+            "coefficient"
+          } else if ("estimate" %in% names(method_data)) {
+            "estimate"
+          } else {
+            write_log(paste("No coefficient column found for method", method, ". Available columns:", paste(names(method_data), collapse = ", ")), "ERROR")
+            NULL
+          }
+          
+          if (!is.null(coef_col)) {
+            if (method == "lasso") {
+              # For LASSO, get ALL non-zero variables (no threshold, no limit)
+              write_log(paste("LASSO: filtering for non-zero coefficients from", nrow(method_data), "features"))
+              selected_results <- method_data %>%
+                filter(!is.na(!!sym(coef_col)) & abs(!!sym(coef_col)) > 0) %>%
+                arrange(desc(abs(!!sym(coef_col)))) %>%
+                mutate(
+                  feature = Variable,
+                  method = method,
+                  method_type = "multivariate",
+                  pValue = NA_real_,
+                  fdr = NA_real_,
+                  statistic = NA_real_,
+                  coefficient = !!sym(coef_col),
+                  importance = if("importance" %in% names(.)) importance else NA_real_,
+                  decision = "selected",
+                  significance_level = "selected",
+                  frequency = 1
+                ) %>%
+                select(feature, method, method_type, pValue, fdr, statistic, 
+                       coefficient, importance, decision, significance_level, frequency)
+              write_log(paste("LASSO: selected", nrow(selected_results), "non-zero features"))
+            } else {
+              # For ridge and elasticNet, use meaningful threshold and limit
+              max_coef <- max(abs(method_data[[coef_col]]), na.rm = TRUE)
+              threshold <- max(0.01 * max_coef, 1e-4)  # At least 1% of max or 1e-4
+              write_log(paste(method, ": max coefficient =", round(max_coef, 6), ", threshold =", round(threshold, 6)))
+              
+              selected_results <- method_data %>%
+                filter(!is.na(!!sym(coef_col)) & abs(!!sym(coef_col)) > threshold) %>%
+                # Get unique features only and select top features if too many
+                arrange(desc(abs(!!sym(coef_col)))) %>%
+                slice_head(n = 50) %>%  # Limit to top 50 features per method
+                mutate(
+                  feature = Variable,
+                  method = method,
+                  method_type = "multivariate",
+                  pValue = NA_real_,
+                  fdr = NA_real_,
+                  statistic = NA_real_,
+                  coefficient = !!sym(coef_col),
+                  importance = if("importance" %in% names(.)) importance else NA_real_,
+                  decision = "selected",
+                  significance_level = case_when(
+                    abs(!!sym(coef_col)) > 0.5 * max_coef ~ "high_coefficient",
+                    abs(!!sym(coef_col)) > 0.1 * max_coef ~ "medium_coefficient",
+                    TRUE ~ "low_coefficient"
+                  ),
+                  frequency = 1
+                ) %>%
+                select(feature, method, method_type, pValue, fdr, statistic, 
+                       coefficient, importance, decision, significance_level, frequency)
+              write_log(paste(method, ": selected", nrow(selected_results), "features above threshold"))
+            }
+          } else {
+            selected_results <- data.frame()
+          }
             
-        } else if (method %in% c("randomForest", "rfe")) {
-          # For RF and RFE, select features with importance > 0 or top features
-          if (method == "rfe") {
-            # For RFE, select the optimal subset
+        } else if (method == "randomForest") {
+          # For Random Forest, select features with importance above mean and deduplicate
+          importance_col <- if("importance" %in% names(method_data)) "importance" else if("Importance" %in% names(method_data)) "Importance" else NULL
+          
+          if (!is.null(importance_col)) {
+            mean_importance <- mean(method_data[[importance_col]], na.rm = TRUE)
             selected_results <- method_data %>%
-              filter(!is.na(selected) & selected == TRUE) %>%
+              filter(!is.na(!!sym(importance_col)) & !!sym(importance_col) > mean_importance) %>%
+              # Get unique features only (take the highest importance if duplicates)
+              group_by(Variable) %>%
+              slice_max(!!sym(importance_col), n = 1, with_ties = FALSE) %>%
+              ungroup() %>%
+              # Limit to top 30 features to avoid overcrowding
+              arrange(desc(!!sym(importance_col))) %>%
+              slice_head(n = 30) %>%
               mutate(
-                feature = ifelse("feature" %in% names(.), feature, 
-                               ifelse("Variable" %in% names(.), Variable, row_number())),
+                feature = Variable,
                 method = method,
                 method_type = "multivariate",
                 pValue = NA_real_,
                 fdr = NA_real_,
                 statistic = NA_real_,
                 coefficient = NA_real_,
-                importance = ifelse("importance" %in% names(.), importance, 
-                                  ifelse("Importance" %in% names(.), Importance, NA_real_)),
+                importance = !!sym(importance_col),
                 decision = "selected",
-                significance_level = "selected"
+                significance_level = case_when(
+                  !!sym(importance_col) > 2 * mean_importance ~ "high_importance",
+                  !!sym(importance_col) > 1.5 * mean_importance ~ "medium_importance",
+                  TRUE ~ "above_average_importance"
+                ),
+                frequency = 1
               ) %>%
-              select(any_of(c("feature", "method", "method_type", "pValue", "fdr", "statistic", 
-                            "coefficient", "importance", "decision", "significance_level")))
+              select(feature, method, method_type, pValue, fdr, statistic, 
+                     coefficient, importance, decision, significance_level, frequency)
           } else {
-            # For Random Forest, select features with importance > threshold (e.g., top 50% or importance > mean)
-            importance_col <- if("importance" %in% names(method_data)) "importance" else if("Importance" %in% names(method_data)) "Importance" else NULL
-            
-            if (!is.null(importance_col)) {
-              mean_importance <- mean(method_data[[importance_col]], na.rm = TRUE)
-              selected_results <- method_data %>%
-                filter(!is.na(!!sym(importance_col)) & !!sym(importance_col) > mean_importance) %>%
-                mutate(
-                  feature = ifelse("feature" %in% names(.), feature, 
-                                 ifelse("Variable" %in% names(.), Variable, row_number())),
-                  method = method,
-                  method_type = "multivariate",
-                  pValue = NA_real_,
-                  fdr = NA_real_,
-                  statistic = NA_real_,
-                  coefficient = NA_real_,
-                  importance = !!sym(importance_col),
-                  decision = "selected",
-                  significance_level = "above_average_importance"
-                ) %>%
-                select(any_of(c("feature", "method", "method_type", "pValue", "fdr", "statistic", 
-                              "coefficient", "importance", "decision", "significance_level")))
-            } else {
-              write_log(paste("Random Forest method missing importance column, skipping"), "WARN")
-              selected_results <- data.frame()
-            }
+            write_log(paste("Random Forest method missing importance column, skipping"), "WARN")
+            selected_results <- data.frame()
           }
+          
+        } else if (method == "rfe") {
+          # For RFE, all returned features are already the selected optimal subset
+          # Filter out features with negative importance
+          selected_results <- method_data %>%
+            # Get unique features only
+            group_by(Variable) %>%
+            slice_head(n = 1) %>%
+            ungroup() %>%
+            # Filter out features with negative importance
+            filter(
+              if("importance" %in% names(.)) {
+                !is.na(importance) & importance >= 0
+              } else if("Importance" %in% names(.)) {
+                !is.na(Importance) & Importance >= 0
+              } else {
+                TRUE  # If no importance column, keep all features
+              }
+            ) %>%
+            mutate(
+              feature = Variable,
+              method = method,
+              method_type = "multivariate",
+              pValue = NA_real_,
+              fdr = NA_real_,
+              statistic = NA_real_,
+              coefficient = NA_real_,
+              importance = if("importance" %in% names(.)) importance else if("Importance" %in% names(.)) Importance else NA_real_,
+              decision = "selected",
+              significance_level = "selected",
+              frequency = 1
+            ) %>%
+            select(feature, method, method_type, pValue, fdr, statistic, 
+                   coefficient, importance, decision, significance_level, frequency)
         }
         
         if (exists("selected_results") && nrow(selected_results) > 0) {
           summary_tibble <- bind_rows(summary_tibble, selected_results)
           write_log(paste("Added", nrow(selected_results), "selected features from", method))
+          write_log(paste("Total summary rows so far:", nrow(summary_tibble)))
+        } else {
+          write_log(paste("No features selected from", method), "WARN")
         }
-        rm(selected_results)
       }
+      }, error = function(e) {
+        write_log(paste("Error processing multivariate method", method, ":", e$message), "ERROR")
+      })
     }
   }
   
-  # Remove duplicates and sort by significance/importance
-  summary_tibble <- summary_tibble %>%
-    distinct() %>%
-    arrange(
-      method_type,
-      case_when(
-        method_type == "bivariate" ~ pValue,
-        method_type == "multivariate" ~ -abs(coalesce(importance, abs(coefficient))),
-        TRUE ~ 1
+  # Create aggregated summary with feature frequency across methods
+  if (nrow(summary_tibble) > 0) {
+    # Create frequency summary (count how many methods selected each feature)
+    feature_frequency <- summary_tibble %>%
+      group_by(feature) %>%
+      summarise(
+        total_methods = n_distinct(method),
+        methods_list = paste(unique(method), collapse = ", "),
+        avg_pvalue = mean(pValue, na.rm = TRUE),
+        min_pvalue = min(pValue, na.rm = TRUE),
+        max_coefficient = ifelse(all(is.na(coefficient)), NA_real_, 
+                               coefficient[which.max(abs(coefficient))]),
+        max_importance = max(importance, na.rm = TRUE),
+        bivariate_methods = sum(method_type == "bivariate"),
+        multivariate_methods = sum(method_type == "multivariate"),
+        highest_significance = case_when(
+          any(significance_level %in% c("highly_significant", "confirmed")) ~ "highly_significant",
+          any(significance_level %in% c("very_significant", "high_coefficient", "high_importance")) ~ "very_significant",
+          any(significance_level %in% c("significant", "medium_coefficient", "medium_importance")) ~ "significant",
+          TRUE ~ "selected"
+        ),
+        .groups = "drop"
+      ) %>%
+      arrange(desc(total_methods), desc(bivariate_methods), min_pvalue) %>%
+      mutate(
+        frequency_rank = row_number(),
+        frequency_category = case_when(
+          total_methods >= 5 ~ "high_frequency",
+          total_methods >= 3 ~ "medium_frequency",
+          total_methods >= 2 ~ "low_frequency",
+          TRUE ~ "single_method"
+        )
       )
-    )
+    
+    # Add frequency information back to the main summary
+    summary_tibble <- summary_tibble %>%
+      left_join(feature_frequency %>% select(feature, total_methods, frequency_category, frequency_rank), 
+                by = "feature") %>%
+      mutate(frequency = total_methods) %>%
+      select(-total_methods)
+    
+    # Also create a simplified summary for plotting
+    plot_summary <- feature_frequency %>%
+      select(feature, total_methods, methods_list, bivariate_methods, multivariate_methods, 
+             highest_significance, frequency_category, frequency_rank, min_pvalue, 
+             max_coefficient, max_importance) %>%
+      rename(frequency = total_methods) %>%
+      slice_head(n = 50)  # Top 50 features for plotting
+    
+    write_log(paste("Summary results created with", nrow(summary_tibble), "total feature-method combinations"))
+    write_log(paste("Unique features:", n_distinct(summary_tibble$feature)))
+    write_log(paste("Features in multiple methods:", sum(feature_frequency$total_methods > 1)))
+    write_log(paste("Plot summary contains", nrow(plot_summary), "top features"))
+    
+    # Enhanced debugging for plot summary
+    write_log("=== PLOT SUMMARY BREAKDOWN ===")
+    if (nrow(plot_summary) > 0) {
+      for (i in 1:min(10, nrow(plot_summary))) {
+        feat <- plot_summary[i, ]
+        write_log(paste("Feature", i, ":", feat$feature, "- frequency:", feat$frequency, "- methods:", feat$methods_list))
+      }
+    }
+    write_log("=== END PLOT SUMMARY BREAKDOWN ===")
+    
+    log_function("create_summary_results", "EXIT")
+    return(list(
+      detailed_summary = summary_tibble,
+      frequency_summary = feature_frequency,
+      plot_summary = plot_summary
+    ))
+  } else {
+    write_log("No significant results found for summary", "WARN")
+    log_function("create_summary_results", "EXIT")
+    return(list(
+      detailed_summary = summary_tibble,
+      frequency_summary = tibble(),
+      plot_summary = tibble()
+    ))
+  }
   
-  write_log(paste("Summary results created with", nrow(summary_tibble), "total features"))
-  write_log(paste("Bivariate significant features:", 
-                  sum(summary_tibble$method_type == "bivariate", na.rm = TRUE)))
-  write_log(paste("Multivariate selected features:", 
-                  sum(summary_tibble$method_type == "multivariate", na.rm = TRUE)))
-  
-  log_function("create_summary_results", "EXIT")
-  return(summary_tibble)
+  }, error = function(e) {
+    write_log(paste("Error in create_summary_results:", e$message), "ERROR")
+    write_log("Returning empty summary results", "WARN")
+    log_function("create_summary_results", "EXIT")
+    return(list(
+      detailed_summary = tibble(),
+      frequency_summary = tibble(),
+      plot_summary = tibble()
+    ))
+  })
 }
 
 # Main analysis function
@@ -1624,7 +1846,12 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
     write_log("Running linear regression analysis...")
     lr_results <- do_lr(dataset, outcome_col, covariate_cols, omics_cols, 
                        analysis_options$linearRegressionWithoutInfluentials)
+    
+    # Generate formula string for display
+    lr_formula <- generate_lr_formula(outcome_col, covariate_cols, omics_cols)
+    
     complete_results$results$linearregression$testName <- "Linear Regression"
+    complete_results$results$linearregression$formula <- lr_formula
     complete_results$results$linearregression$data <- lr_results$results
     complete_results$results$linearregression$data_removed_influentials <- lr_results$removed_influentials_results
     # Add summary statistics
@@ -1998,12 +2225,25 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
   # Create summary results tibble
   write_log("=== CREATING SUMMARY RESULTS ===")
   if (!is.null(complete_results$results) && length(complete_results$results) > 0) {
-    summary_results <- create_summary_results(complete_results$results)
-    complete_results$summary_results <- summary_results
-    write_log(paste("Summary results created with", nrow(summary_results), "features"))
+    tryCatch({
+      summary_results_list <- create_summary_results(complete_results$results)
+      complete_results$summary_results <- summary_results_list$plot_summary  # Use plot-friendly summary
+      complete_results$detailed_summary <- summary_results_list$detailed_summary
+      complete_results$frequency_summary <- summary_results_list$frequency_summary
+      write_log(paste("Summary results created with", nrow(summary_results_list$detailed_summary), "feature-method combinations"))
+      write_log(paste("Plot summary contains", nrow(summary_results_list$plot_summary), "top features"))
+    }, error = function(e) {
+      write_log(paste("Error creating summary results:", e$message), "ERROR")
+      write_log("Using empty summary results as fallback", "WARN")
+      complete_results$summary_results <<- tibble()
+      complete_results$detailed_summary <<- tibble()
+      complete_results$frequency_summary <<- tibble()
+    })
   } else {
     write_log("No results available for summary", "WARN")
     complete_results$summary_results <- tibble()
+    complete_results$detailed_summary <- tibble()
+    complete_results$frequency_summary <- tibble()
   }
   
   write_log("=== ANALYSIS COMPLETED ===")
@@ -2017,12 +2257,14 @@ main_analysis <- function(input_file, preprocessing_options, analysis_options, a
   return(complete_results)
 }
 
-# Get command line arguments
-args <- commandArgs(trailingOnly = TRUE)
-
-if (length(args) == 0) {
-  stop("No arguments provided")
-}
+# Only execute if script is run directly (not sourced)
+if (!interactive() && length(commandArgs(trailingOnly = TRUE)) > 0) {
+  # Get command line arguments
+  args <- commandArgs(trailingOnly = TRUE)
+  
+  if (length(args) == 0) {
+    stop("No arguments provided")
+  }
 
 # Parse JSON arguments - either from command line or from file
 if (file.exists(args[1])) {
@@ -2122,3 +2364,5 @@ if (final_result$status == "completed") {
 
 write_log("=== ANALYSIS SCRIPT FINISHED ===")
 cat(json_output)
+
+} # End of command line execution block

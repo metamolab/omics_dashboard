@@ -1,0 +1,13 @@
+{
+  "dataset_path": "test_data.csv",
+  "analysis_methods": ["ridge"],
+  "target_column": "V3",
+  "feature_columns": ["V1", "V2"],
+  "test_size": 0.2,
+  "random_state": 42,
+  "regularization_params": {
+    "ridge": {
+      "alpha": 1.0
+    }
+  }
+}

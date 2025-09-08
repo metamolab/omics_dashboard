@@ -149,7 +149,14 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                               </table>
                               <mat-paginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                             </div>
-                            <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
+                            <div class="plot-container-with-controls" style="flex: 1; min-width: 300px;">
+                              <div class="plot-controls">
+                                <button class="fullscreen-btn" (click)="openPlotFullscreen('manhattan-plot-' + selectedBivariateTab)" title="View Fullscreen">
+                                  🔍
+                                </button>
+                              </div>
+                              <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="width: 100%; height: 400px;"></div>
+                            </div>
                           </div>
                         </div>
                         
@@ -174,7 +181,14 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                                 </table>
                                 <mat-paginator #influentialPaginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                               </div>
-                              <div class="manhattan-plot" [attr.id]="'manhattan-plot-no-influential-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
+                              <div class="plot-container-with-controls" style="flex: 1; min-width: 300px;">
+                                <div class="plot-controls">
+                                  <button class="fullscreen-btn" (click)="openPlotFullscreen('manhattan-plot-no-influential-' + selectedBivariateTab)" title="View Fullscreen">
+                                    🔍
+                                  </button>
+                                </div>
+                                <div class="manhattan-plot" [attr.id]="'manhattan-plot-no-influential-' + selectedBivariateTab" style="width: 100%; height: 400px;"></div>
+                              </div>
                             </div>
                           </div>
                         }
@@ -200,7 +214,14 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                             </table>
                             <mat-paginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                           </div>
-                          <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="flex: 1; min-width: 300px; height: 400px;"></div>
+                          <div class="plot-container-with-controls" style="flex: 1; min-width: 300px;">
+                            <div class="plot-controls">
+                              <button class="fullscreen-btn" (click)="openPlotFullscreen('manhattan-plot-' + selectedBivariateTab)" title="View Fullscreen">
+                                🔍
+                              </button>
+                            </div>
+                            <div class="manhattan-plot" [attr.id]="'manhattan-plot-' + selectedBivariateTab" style="width: 100%; height: 400px;"></div>
+                          </div>
                         </div>
                       </div>
                     }
@@ -330,17 +351,23 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
                           </table>
                           <mat-paginator [pageSize]="15" [pageSizeOptions]="[5, 10, 15, 25, 50]" showFirstLastButtons></mat-paginator>
                         </div>
-                        <div class="feature-importance-plot" [attr.id]="'feature-plot-' + selectedMultivariateTab" style="flex: 1; min-width: 300px; height: 400px;">
-                          @if (selectedMultivariateTab === 'boruta') {
-                            <!-- Boruta boxplot will be rendered here -->
-                            <div [attr.id]="'boruta-boxplot-' + selectedMultivariateTab" style="width: 100%; height: 100%;"></div>
-                          } @else if (hasImportanceData(selectedMultivariateTab)) {
-                            <!-- Feature importance plot will be rendered here for all methods with importance data -->
-                          } @else {
-                            <!-- Manhattan plot for methods without importance data -->
-                            <div [attr.id]="'manhattan-plot-' + selectedMultivariateTab" style="width: 100%; height: 100%;"></div>
-                          }
-                        </div>
+                        @if (selectedMultivariateTab !== 'boruta') {
+                          <div class="feature-importance-plot-container" style="flex: 1; min-width: 300px;">
+                            <div class="plot-controls">
+                              <button class="fullscreen-btn" (click)="openPlotFullscreen('feature-plot-' + selectedMultivariateTab)" title="View Fullscreen">
+                                🔍
+                              </button>
+                            </div>
+                            <div class="feature-importance-plot" [attr.id]="'feature-plot-' + selectedMultivariateTab" style="width: 100%; height: 400px;">
+                              @if (hasImportanceData(selectedMultivariateTab)) {
+                                <!-- Feature importance plot will be rendered here for all methods with importance data -->
+                              } @else {
+                                <!-- Manhattan plot for methods without importance data -->
+                                <div [attr.id]="'manhattan-plot-' + selectedMultivariateTab" style="width: 100%; height: 100%;"></div>
+                              }
+                            </div>
+                          </div>
+                        }
                       </div>
                     </div>
                   }
@@ -354,48 +381,24 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
             <div class="test-section">
               <div class="section-header">
                 <h2>Riepilogo dell'Analisi</h2>
-                <p>Features significative selezionate in più test</p>
+                <p>Sezione in fase di sviluppo</p>
               </div>
               <div class="test-tabset">
                 <ul class="test-tabs">
                   <li class="test-tab active">
-                    Feature Frequency
+                    Riepilogo
                   </li>
                 </ul>
                 <div class="test-tab-content">
                   <div class="test-card">
-                    <h3>Features Selezionate in Multipli Test</h3>
+                    <h3>Riepilogo Analisi</h3>
                     <div class="summary-content">
-                      <div class="plot-container">
-                        <div #summaryFeaturePlot class="plot-element"></div>
+                      <div class="summary-placeholder">
+                        <div class="placeholder-icon">🚧</div>
+                        <h4>Sezione in Sviluppo</h4>
+                        <p>Il riepilogo dell'analisi sarà disponibile in una versione futura.</p>
+                        <p class="placeholder-note">Per ora è possibile visualizzare i risultati dettagliati nelle sezioni Bivariate e Multivariate.</p>
                       </div>
-                      @if (summaryResults() && summaryResults().length > 0) {
-                        <div class="summary-stats">
-                          <div class="stat-card">
-                            <span class="stat-label">Totale Features Uniche:</span>
-                            <span class="stat-value">{{ getTotalUniqueFeatures() }}</span>
-                          </div>
-                          <div class="stat-card">
-                            <span class="stat-label">Features in >2 Test:</span>
-                            <span class="stat-value">{{ getFrequentFeaturesCount() }}</span>
-                          </div>
-                          <div class="stat-card">
-                            <span class="stat-label">Test Bivariate:</span>
-                            <span class="stat-value">{{ getBivariateTestCount() }}</span>
-                          </div>
-                          <div class="stat-card">
-                            <span class="stat-label">Test Multivariate:</span>
-                            <span class="stat-value">{{ getMultivariateTestCount() }}</span>
-                          </div>
-                        </div>
-                      } @else {
-                        <div class="summary-placeholder">
-                          <div class="placeholder-icon">📈</div>
-                          <h4>Nessun Dato Disponibile</h4>
-                          <p>Non sono disponibili dati di riepilogo per questa analisi.</p>
-                          <p class="placeholder-note">Assicurati che l'analisi sia stata completata con successo.</p>
-                        </div>
-                      }
                     </div>
                   </div>
                 </div>
@@ -434,6 +437,23 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
         </div>
       }
     </div>
+    
+    <!-- Fullscreen Plot Modal -->
+    @if (showFullscreenModal()) {
+      <div class="fullscreen-modal-overlay" (click)="closeFullscreenModal()">
+        <div class="fullscreen-modal-content" (click)="$event.stopPropagation()">
+          <div class="fullscreen-modal-header">
+            <h3>{{ fullscreenPlotTitle() }}</h3>
+            <button class="close-btn" (click)="closeFullscreenModal()" title="Close">
+              ✕
+            </button>
+          </div>
+          <div class="fullscreen-plot-container">
+            <div [attr.id]="fullscreenPlotId()" class="fullscreen-plot"></div>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .content-wrapper {
@@ -783,8 +803,8 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
     
     .summary-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
       margin-top: 24px;
       padding: 20px;
       background: #f8fafc;
@@ -796,19 +816,27 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
-      padding: 16px;
+      gap: 6px;
+      padding: 12px;
       background: white;
       border-radius: 8px;
       border: 1px solid #e2e8f0;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+      transition: all 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.12);
+      border-color: #bae6fd;
     }
     
     .stat-label {
-      font-size: 14px;
+      font-size: 12px;
       color: #64748b;
       font-weight: 500;
       text-align: center;
+      line-height: 1.3;
     }
     
     .stat-value {
@@ -907,6 +935,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       border: 1px solid #bae6fd;
       border-top: none;
       padding: 24px;
+      min-height: 950px; /* Ensure minimum height for plots (400px) + extra space (100px) */
     }
 
     /* Regularization Method Info Styles */
@@ -1003,7 +1032,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       text-align: left !important;
     }
 
-    /* Linear Regression Specific Styles */
+    /* Regression Section Styles */
     .regression-formula {
       margin-bottom: 24px;
       padding: 16px;
@@ -1030,7 +1059,7 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
     .regression-section {
       margin-bottom: 32px;
       padding: 16px;
-      background: #f8fafc;
+      background: white;
       border-radius: 8px;
       border: 1px solid #e2e8f0;
     }
@@ -1042,6 +1071,153 @@ import { AnalysisRequest, AnalysisResult } from '../../models/interfaces';
       padding-bottom: 8px;
       border-bottom: 2px solid #bae6fd;
     }
+
+    /* Plot Container Styles */
+    .plot-container {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border: 1px solid #e2e8f0;
+      margin: 16px 0;
+      position: relative;
+    }
+    
+    .plot-element {
+      width: 100%;
+      min-height: 400px;
+      height: 400px;
+    }
+
+    /* Plot Controls and Fullscreen Button */
+    .plot-container-with-controls {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 300px;
+      height: 850px;
+    }
+
+    .feature-importance-plot-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 300px;
+      height: 850px;
+    }
+
+    .plot-controls {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+    }
+
+    .fullscreen-btn {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 16px;
+      color: #374151;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      backdrop-filter: blur(4px);
+    }
+
+    .fullscreen-btn:hover {
+      background: rgba(255, 255, 255, 1);
+      border-color: #06b6d4;
+      color: #06b6d4;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Fullscreen Modal Styles */
+    .fullscreen-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      cursor: pointer;
+    }
+
+    .fullscreen-modal-content {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      width: 95vw;
+      height: 90vh;
+      max-width: 1400px;
+      display: flex;
+      flex-direction: column;
+      cursor: default;
+      overflow: hidden;
+    }
+
+    .fullscreen-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+
+    .fullscreen-modal-header h3 {
+      margin: 0;
+      color: #111827;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 18px;
+      color: #6b7280;
+      transition: all 0.2s ease;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .close-btn:hover {
+      background: #ef4444;
+      border-color: #dc2626;
+      color: white;
+    }
+
+    .fullscreen-plot-container {
+      flex: 1;
+      padding: 24px;
+      background: white;
+      overflow: hidden;
+    }
+
+    .fullscreen-plot {
+      width: 100%;
+      height: 100%;
+      min-height: 500px;
+    }
   `]
 })
 export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked, DoCheck, OnDestroy {
@@ -1051,7 +1227,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   @ViewChild('correlationPlot') correlationPlot?: ElementRef;
   @ViewChild('boxPlot') boxPlot?: ElementRef;
   @ViewChild('scatterPlot') scatterPlot?: ElementRef;
-  @ViewChild('summaryFeaturePlot') summaryFeaturePlot?: ElementRef;
+  // @ViewChild('summaryFeaturePlot') summaryFeaturePlot?: ElementRef; // Removed with summary functionality
 
   tableDataSource = new MatTableDataSource<any>([]);
   @ViewChild(MatPaginator) paginator!: MatPaginator;
@@ -1086,6 +1262,12 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   selectedBivariateTab: string | null = null;
   selectedMultivariateTab: string | null = null;
 
+  // Fullscreen modal state
+  showFullscreenModal = signal(false);
+  fullscreenPlotId = signal<string | null>(null);
+  fullscreenPlotTitle = signal<string>('');
+  originalPlotId = signal<string | null>(null);
+
   constructor(
     private router: Router,
     private dataFlowService: DataFlowService,
@@ -1101,10 +1283,9 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   // Navigation methods
   selectSection(section: 'bivariate' | 'multivariate' | 'summary') {
     this.selectedSection = section;
-    // console.log('[DIAGNOSTICS] Section changed to:', section);
     
     // Clear any existing plots when changing sections
-    this.clearAllPlots();
+    // Clear plots - summary functionality removed
     
     // Reset tab selections when changing sections
     if (section === 'bivariate') {
@@ -1120,24 +1301,27 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       return;
     }
     
-    // Auto-select first available test in new section
+    // Auto-select first available test in new section - force selection regardless of previous state
     setTimeout(() => {
       if (section === 'bivariate') {
         const bivariateTests = this.getBivariateTests();
-        if (bivariateTests.length > 0 && !this.selectedBivariateTab) {
+        if (bivariateTests.length > 0) {
+          // Force selection of first test to ensure table and plot are shown
           this.selectBivariateTab(bivariateTests[0]);
         }
       } else if (section === 'multivariate') {
         const multivariateTests = this.getMultivariateTests();
-        if (multivariateTests.length > 0 && !this.selectedMultivariateTab) {
+        if (multivariateTests.length > 0) {
+          // Force selection of first test to ensure table and plot are shown
           this.selectMultivariateTab(multivariateTests[0]);
         }
       }
+      // Force change detection to ensure UI updates
+      this.cdr.detectChanges();
     }, 100);
   }
 
   selectBivariateTab(testKey: string) {
-    // console.log('[DIAGNOSTICS] Selecting bivariate tab:', testKey);
     this.selectedBivariateTab = testKey;
     this.selectedTab = testKey;
     this.updateTableForCurrentTab();
@@ -1145,11 +1329,135 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   selectMultivariateTab(testKey: string) {
-    // console.log('[DIAGNOSTICS] Selecting multivariate tab:', testKey);
     this.selectedMultivariateTab = testKey;
     this.selectedTab = testKey;
     this.updateTableForCurrentTab();
     setTimeout(() => this.createPlots(), 250);
+  }
+
+  // Fullscreen modal methods
+  openPlotFullscreen(plotId: string) {
+    const originalElement = document.getElementById(plotId);
+    if (!originalElement) {
+      console.warn('Plot element not found:', plotId);
+      return;
+    }
+
+    // Set up fullscreen modal state
+    this.originalPlotId.set(plotId);
+    this.fullscreenPlotId.set(plotId + '-fullscreen');
+    
+    // Set the title based on the current context
+    let title = 'Plot';
+    if (plotId.includes('manhattan-plot')) {
+      const testKey = this.selectedSection === 'bivariate' ? this.selectedBivariateTab : this.selectedMultivariateTab;
+      title = `Manhattan Plot - ${this.getTestDisplayName(testKey || '')}`;
+    } else if (plotId.includes('feature-plot')) {
+      const testKey = this.selectedMultivariateTab;
+      title = `Feature Importance - ${this.getTestDisplayName(testKey || '')}`;
+    } // Summary plot fullscreen removed with summary functionality
+    
+    this.fullscreenPlotTitle.set(title);
+    this.showFullscreenModal.set(true);
+    
+    // Create the fullscreen plot after modal is shown
+    setTimeout(() => {
+      this.createFullscreenPlot();
+    }, 100);
+  }
+
+  closeFullscreenModal() {
+    const fullscreenElement = document.getElementById(this.fullscreenPlotId() || '');
+    if (fullscreenElement) {
+      this.plotlyService.purge(fullscreenElement);
+    }
+    
+    this.showFullscreenModal.set(false);
+    this.fullscreenPlotId.set(null);
+    this.fullscreenPlotTitle.set('');
+    this.originalPlotId.set(null);
+  }
+
+  private createFullscreenPlot() {
+    const originalId = this.originalPlotId();
+    const fullscreenId = this.fullscreenPlotId();
+    
+    if (!originalId || !fullscreenId) return;
+
+    const originalElement = document.getElementById(originalId);
+    const fullscreenElement = document.getElementById(fullscreenId);
+    
+    if (!originalElement || !fullscreenElement) {
+      console.warn('Could not find plot elements for fullscreen');
+      return;
+    }
+
+    // Copy the plot from the original element to the fullscreen element
+    try {
+      // Get the current plot data and layout from the original element
+      const plotData = (originalElement as any).data;
+      const plotLayout = (originalElement as any).layout;
+      const plotConfig = (originalElement as any).config;
+
+      if (plotData && plotLayout) {
+        // Create an enhanced layout for fullscreen
+        const fullscreenLayout = {
+          ...plotLayout,
+          width: undefined,
+          height: undefined,
+          autosize: true,
+          margin: { l: 80, r: 80, t: 80, b: 80 },
+          font: {
+            ...plotLayout.font,
+            size: 14
+          },
+          title: {
+            ...plotLayout.title,
+            font: { size: 18 }
+          },
+          xaxis: {
+            ...plotLayout.xaxis,
+            titlefont: { size: 16 },
+            tickfont: { size: 12 }
+          },
+          yaxis: {
+            ...plotLayout.yaxis,
+            titlefont: { size: 16 },
+            tickfont: { size: 12 }
+          }
+        };
+
+        const fullscreenConfig = {
+          ...plotConfig,
+          responsive: true,
+          displayModeBar: true,
+          modeBarButtonsToRemove: ['pan2d', 'select2d', 'lasso2d'],
+          displaylogo: false,
+          toImageButtonOptions: {
+            format: 'png',
+            filename: 'fullscreen_plot',
+            height: 1000,
+            width: 1400,
+            scale: 2
+          }
+        };
+
+        // Create the fullscreen plot
+        this.plotlyService.createPlot(fullscreenElement, plotData, fullscreenLayout, fullscreenConfig)
+          .catch(error => {
+            console.error('Error creating fullscreen plot:', error);
+            fullscreenElement.innerHTML = `
+              <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444;">
+                <p>Error creating fullscreen plot: ${error.message}</p>
+              </div>
+            `;
+          });
+      } else {
+        console.warn('Original plot data not found for fullscreen');
+      }
+    } catch (error) {
+      console.error('Error accessing original plot data:', error);
+    }
   }
 
 
@@ -1181,8 +1489,6 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   updateTableDataSource() {
-    // console.log('[DIAGNOSTICS] updateTableDataSource - Starting data source update');
-    
     // Determine the current tab based on the selected section
     let currentTab: string | null = null;
     if (this.selectedSection === 'bivariate' && this.selectedBivariateTab) {
@@ -1191,12 +1497,8 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       currentTab = this.selectedMultivariateTab;
     }
     
-    // console.log('[DIAGNOSTICS] updateTableDataSource - currentTab:', currentTab);
-    
     // Get original data for the table
     let data = this.getTestData(currentTab || '');
-    // console.log('[DIAGNOSTICS] updateTableDataSource - Retrieved data length:', data.length);
-    // console.log('[DIAGNOSTICS] updateTableDataSource - Sample data:', data[0]);
     
     // Apply automatic sorting for TABLE DISPLAY ONLY (not for plots)
     if (currentTab && data.length > 0) {
@@ -1210,36 +1512,24 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     }
     
     this.tableDataSource.data = data;
-    // console.log('[DIAGNOSTICS] updateTableDataSource - Data assigned to table data source');
     
     // Force change detection and reconnect paginator/sort
     setTimeout(() => {
       if (this.paginator) {
-        // console.log('[DIAGNOSTICS] updateTableDataSource - Connecting paginator');
         this.tableDataSource.paginator = this.paginator;
         this.paginator.firstPage(); // Reset to first page
-      } else {
-        // console.log('[DIAGNOSTICS] updateTableDataSource - No paginator available');
       }
       if (this.sort) {
-        // console.log('[DIAGNOSTICS] updateTableDataSource - Connecting sort');
         this.tableDataSource.sort = this.sort;
         // Don't reset sorting since we're applying automatic sorting
         // this.sort.active = ''; // Reset sorting
         // this.sort.direction = '';
-      } else {
-        // console.log('[DIAGNOSTICS] updateTableDataSource - No sort available');
       }
-      // console.log('[DIAGNOSTICS] updateTableDataSource - Forcing change detection');
       this.cdr.detectChanges();
     }, 0);
-    
-    // console.log('[DIAGNOSTICS] updateTableDataSource - Data source update completed');
   }
 
   updateTableForCurrentTab() {
-    // console.log('[DIAGNOSTICS] updateTableForCurrentTab - Starting table update');
-    
     // Determine the current tab based on the selected section
     let currentTab: string | null = null;
     if (this.selectedSection === 'bivariate' && this.selectedBivariateTab) {
@@ -1248,56 +1538,39 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       currentTab = this.selectedMultivariateTab;
     }
     
-    // console.log('[DIAGNOSTICS] updateTableForCurrentTab - currentTab:', currentTab, 'section:', this.selectedSection);
-    
     if (!currentTab) {
-      // console.log('[DIAGNOSTICS] updateTableForCurrentTab - No selected tab, returning');
       return;
     }
     
     // Get the columns for the current test
-    // console.log('[DIAGNOSTICS] updateTableForCurrentTab - Getting columns for test');
     this.displayedColumns = this.getColumnsForTest(currentTab);
-    // console.log('[DIAGNOSTICS] updateTableForCurrentTab - Displayed columns:', this.displayedColumns);
     
     // Update the data source with proper reinitialization
-    // console.log('[DIAGNOSTICS] updateTableForCurrentTab - Updating table data source');
     this.updateTableDataSource();
     
     // Handle linear regression tests with influential removed data
     if (this.isLinearRegressionTest(currentTab)) {
-      // console.log('[DIAGNOSTICS] updateTableForCurrentTab - Handling linear regression influential data');
       this.updateInfluentialRemovedTable(currentTab);
     }
     
     // Force view update to ensure Material Table recognizes new structure
-    // console.log('[DIAGNOSTICS] updateTableForCurrentTab - Forcing change detection');
     this.cdr.detectChanges();
-    // console.log('[DIAGNOSTICS] updateTableForCurrentTab - Table update completed');
   }
 
   getColumnsForTest(testName: string): string[] {
-    // console.log(`[DIAGNOSTICS] getColumnsForTest - Getting columns for test: ${testName}`);
-    
     const testData = this.getTestData(testName);
     if (!testData || testData.length === 0) {
-      // console.log(`[DIAGNOSTICS] getColumnsForTest - No data for test ${testName}, returning empty array`);
       return [];
     }
-    
-    // console.log(`[DIAGNOSTICS] getColumnsForTest - Test data length: ${testData.length}`);
     
     // Get all unique keys from the first few rows to determine columns
     const sampleSize = Math.min(5, testData.length);
     const allKeys = new Set<string>();
     
-    // console.log(`[DIAGNOSTICS] getColumnsForTest - Analyzing ${sampleSize} sample rows`);
-    
     for (let i = 0; i < sampleSize; i++) {
       const row = testData[i];
       if (row) {
         const rowKeys = Object.keys(row);
-        // console.log(`[DIAGNOSTICS] getColumnsForTest - Row ${i} keys:`, rowKeys);
         rowKeys.forEach(key => allKeys.add(key));
       }
     }
@@ -1502,7 +1775,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     // });
 
     if (!fileData || !preprocessingOptions || !analysisOptions) {
-      // console.log('[DIAGNOSTICS] Missing prerequisites, navigating to upload');
+      // console.log('[DIAGNOSTICS] Missing prerequisites, navigating to data selection');
       this.navigationService.navigateToStep('upload');
       return;
     }
@@ -1765,21 +2038,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
       }
     }
     
-    // Handle summary plot creation when summary section is active
-    if (this.selectedSection === 'summary') {
-      // First check if we have summary data
-      const summaryData = this.summaryResults();
-      if (summaryData && summaryData.length > 0) {
-        // Then check if the ViewChild element is available
-        if (this.summaryFeaturePlot?.nativeElement) {
-          const plotElement = this.summaryFeaturePlot.nativeElement;
-          // Check if plot hasn't been created yet (no child nodes)
-          if (!plotElement.hasChildNodes()) {
-            setTimeout(() => this.createSummaryPlot(), 200);
-          }
-        }
-      }
-    }
+    // Summary section removed - no plot creation needed
   }
 
   // Aggiorna la tab selezionata quando arrivano nuovi risultati
@@ -1955,7 +2214,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     
     // Handle summary section separately
     if (this.selectedSection === 'summary') {
-      setTimeout(() => this.createSummaryPlot(), 500);
+      // Summary plot creation removed
       return;
     }
     
@@ -1992,8 +2251,8 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     setTimeout(() => {
       // Handle different plot types based on test type and section
       if (selectedTab === 'boruta') {
-        // Create Boruta boxplot
-        this.createBorutaBoxplot(selectedTab);
+        // No plot for Boruta - just show the table data
+        return;
       } else if (this.hasImportanceData(selectedTab) && selectedTab !== 'boruta') {
         // Use feature importance plot for all multivariate methods with importance data (except Boruta)
         this.createFeatureImportancePlot(selectedTab);
@@ -2032,12 +2291,6 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
   }
 
   private createLinearRegressionManhattanPlot(testKey: string, data: any[], containerId: string) {
-    // console.log(`[DEBUG] createLinearRegressionManhattanPlot called with:`, {
-    //   testKey,
-    //   containerId,
-    //   dataLength: data?.length
-    // });
-    
     const plotContainer = document.getElementById(containerId);
     if (!plotContainer) {
       console.warn('Plot container not found:', containerId);
@@ -2045,8 +2298,6 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     }
 
     try {
-      // console.log(`Creating Linear Regression Manhattan plot for ${testKey} with ${data.length} data points`);
-      
       if (!data || data.length === 0) {
         console.error('No data available for linear regression plotting');
         return;
@@ -2918,9 +3169,7 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     if (this.scatterPlot?.nativeElement) {
       this.plotlyService.purge(this.scatterPlot.nativeElement);
     }
-    if (this.summaryFeaturePlot?.nativeElement) {
-      this.plotlyService.purge(this.summaryFeaturePlot.nativeElement);
-    }
+    // Summary plot purge removed with summary functionality
   }
 
   // Debug helper methods
@@ -3353,49 +3602,12 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
 
   getLinearRegressionFormula(testKey: string): string | null {
     const test = this.results()?.results?.[testKey];
+    
+    // Simply return the formula generated by the R script
     if (test?.formula) {
       return test.formula;
     }
     
-    // If no formula is provided by the API, construct one using actual variable names
-    if (this.isLinearRegressionTest(testKey)) {
-      const preprocessingOptions = this.dataFlowService.preprocessingOptions();
-      
-      if (preprocessingOptions?.columnClassification) {
-        const classification = preprocessingOptions.columnClassification;
-        
-        // Get actual variable names
-        const outcomeVar = classification.outcomeColumn || 'outcome';
-        const covariateVars = classification.covariateColumns || [];
-        const omicsVars = classification.omicsColumns || [];
-        
-        // Build formula components
-        const formulaParts: string[] = [];
-        
-        // Add covariates if present
-        if (covariateVars.length > 0) {
-          formulaParts.push(covariateVars.join(' + '));
-        }
-        
-        // Add indication of omics variables (since there could be many)
-        if (omicsVars.length > 0) {
-          if (omicsVars.length <= 3) {
-            // Show actual names if only a few
-            formulaParts.push(omicsVars.join(' + '));
-          } else {
-            // Show count if many
-            formulaParts.push(`omics_variables (${omicsVars.length} variables)`);
-          }
-        }
-        
-        // Construct final formula
-        const rightSide = formulaParts.length > 0 ? formulaParts.join(' + ') : 'intercept';
-        return `${outcomeVar} ~ ${rightSide}`;
-      } else {
-        // Fallback to generic formula
-        return 'outcome ~ covariates + omics_variables';
-      }
-    }
     return null;
   }
 
@@ -3639,306 +3851,38 @@ export class ResultsComponent implements OnInit, AfterViewInit, AfterViewChecked
     return 'N/A';
   }
 
-  // Summary section methods
-  summaryResults() {
-    const results = this.results();
-    console.log('[SUMMARY DEBUG] Getting summary results...');
-    console.log('[SUMMARY DEBUG] Full results object keys:', results ? Object.keys(results) : 'No results');
-    
-    if (!results) {
-      console.log('[SUMMARY DEBUG] No results object available');
-      return [];
-    }
-    
-    // Check different possible locations for summary data
-    const summaryFromResults = results?.summary_results;
-    const summaryFromNestedResults = results?.results?.summary_results;
-    
-    console.log('[SUMMARY DEBUG] Checking summary_results:', summaryFromResults);
-    console.log('[SUMMARY DEBUG] Checking results.summary_results:', summaryFromNestedResults);
-    
-    // Also check if it's inside the main results object as a property
-    const mainResults = results?.results;
-    if (mainResults && typeof mainResults === 'object') {
-      console.log('[SUMMARY DEBUG] Main results keys:', Object.keys(mainResults));
-      // Check if summary_results exists as a direct property
-      const directSummary = (mainResults as any).summary_results;
-      console.log('[SUMMARY DEBUG] Direct summary in main results:', directSummary);
-    }
-    
-    // Try to find summary data in various locations
-    const summaryData = summaryFromResults || summaryFromNestedResults || [];
-    
-    console.log('[SUMMARY DEBUG] Final summary data:', summaryData);
-    console.log('[SUMMARY DEBUG] Summary data length:', summaryData?.length || 0);
-    
-    if (summaryData && summaryData.length > 0) {
-      console.log('[SUMMARY DEBUG] Sample summary data structure:', summaryData[0]);
-      console.log('[SUMMARY DEBUG] Expected fields check:', {
-        hasFeature: summaryData[0].hasOwnProperty('feature'),
-        hasMethod: summaryData[0].hasOwnProperty('method'),
-        hasMethodType: summaryData[0].hasOwnProperty('method_type'),
-        allKeys: Object.keys(summaryData[0])
-      });
-      return summaryData;
-    } else {
-      console.log('[SUMMARY DEBUG] No summary data found in results');
-      // Instead of mock data, let's try to generate real summary data from the actual analysis results
-      return this.generateSummaryFromResults(results);
-    }
-  }
-
-  // Generate summary data from actual analysis results instead of using mock data
-  private generateSummaryFromResults(results: any): any[] {
-    console.log('[SUMMARY DEBUG] Generating summary from actual results');
-    
-    if (!results?.results) {
-      console.log('[SUMMARY DEBUG] No results.results available');
-      return [];
-    }
-    
-    const summaryData: any[] = [];
-    const analysisResults = results.results;
-    
-    // Define method types
-    const bivariateeMethods = ['student-t', 'welch-t', 'wilcoxon', 'anova', 'welch-anova', 'kruskal-wallis', 'pearson', 'spearman', 'linearregression'];
-    const multivariateMethods = ['ridge', 'lasso', 'elasticNet', 'randomForest', 'boruta', 'rfe'];
-    
-    console.log('[SUMMARY DEBUG] Available methods in results:', Object.keys(analysisResults));
-    
-    // Process bivariate methods
-    for (const methodKey of Object.keys(analysisResults)) {
-      const methodData = analysisResults[methodKey];
-      
-      if (bivariateeMethods.includes(methodKey) && methodData?.data && Array.isArray(methodData.data)) {
-        console.log(`[SUMMARY DEBUG] Processing bivariate method: ${methodKey} with ${methodData.data.length} items`);
-        
-        // Filter for significant results (p < 0.05)
-        const significantResults = methodData.data.filter((row: any) => {
-          const pValue = row.pValue || row.pval || row.p_value || row['P.value'] || row['Pr(>|t|)'];
-          return pValue !== null && pValue !== undefined && pValue < 0.05;
-        });
-        
-        console.log(`[SUMMARY DEBUG] Found ${significantResults.length} significant results for ${methodKey}`);
-        
-        significantResults.forEach((row: any) => {
-          const feature = row.Variable || row.variable || row.feature || row.gene;
-          const pValue = row.pValue || row.pval || row.p_value || row['P.value'] || row['Pr(>|t|)'];
-          
-          if (feature) {
-            summaryData.push({
-              feature: feature,
-              method: methodKey,
-              method_type: 'bivariate',
-              pValue: pValue,
-              fdr: row.fdr || null,
-              statistic: row.statistic || row.tstat || row.zstat || null,
-              coefficient: row.estimate || row.coefficient || null,
-              importance: null,
-              decision: null,
-              significance_level: pValue < 0.001 ? 'highly_significant' : 
-                                 pValue < 0.01 ? 'very_significant' : 'significant'
-            });
-          }
-        });
-      }
-      
-      // Process multivariate methods
-      if (multivariateMethods.includes(methodKey) && methodData?.data && Array.isArray(methodData.data)) {
-        console.log(`[SUMMARY DEBUG] Processing multivariate method: ${methodKey} with ${methodData.data.length} items`);
-        
-        let selectedResults: any[] = [];
-        
-        if (methodKey === 'boruta') {
-          // For Boruta, select confirmed features
-          selectedResults = methodData.data.filter((row: any) => {
-            const decision = row.decision || row.Decision;
-            return decision === 'Confirmed';
-          });
-        } else if (['ridge', 'lasso', 'elasticNet'].includes(methodKey)) {
-          // For regularization methods, select features with non-zero coefficients
-          selectedResults = methodData.data.filter((row: any) => {
-            const coeff = row.coefficient || row.estimate;
-            return coeff !== null && coeff !== undefined && Math.abs(coeff) > 0;
-          });
-        } else if (methodKey === 'rfe') {
-          // For RFE, select features marked as selected
-          selectedResults = methodData.data.filter((row: any) => {
-            return row.selected === true || row.selected === 'TRUE';
-          });
-        } else if (methodKey === 'randomForest') {
-          // For Random Forest, select features with above-average importance
-          const importances = methodData.data.map((row: any) => row.importance || row.Importance || 0);
-          const meanImportance = importances.reduce((a: number, b: number) => a + b, 0) / importances.length;
-          selectedResults = methodData.data.filter((row: any) => {
-            const imp = row.importance || row.Importance || 0;
-            return imp > meanImportance;
-          });
-        }
-        
-        console.log(`[SUMMARY DEBUG] Found ${selectedResults.length} selected results for ${methodKey}`);
-        
-        selectedResults.forEach((row: any) => {
-          const feature = row.Variable || row.variable || row.feature || row.gene;
-          
-          if (feature) {
-            summaryData.push({
-              feature: feature,
-              method: methodKey,
-              method_type: 'multivariate',
-              pValue: null,
-              fdr: null,
-              statistic: null,
-              coefficient: row.coefficient || row.estimate || null,
-              importance: row.importance || row.Importance || null,
-              decision: row.decision || row.Decision || 'selected',
-              significance_level: methodKey === 'boruta' ? 'confirmed' : 'selected'
-            });
-          }
-        });
-      }
-    }
-    
-    console.log('[SUMMARY DEBUG] Generated summary data:', summaryData);
-    console.log('[SUMMARY DEBUG] Total summary items:', summaryData.length);
-    
-    if (summaryData.length > 0) {
-      console.log('[SUMMARY DEBUG] Sample generated data:', summaryData.slice(0, 3));
-    }
-    
-    return summaryData;
-  }
-
   getTotalUniqueFeatures(): number {
-    const summary = this.summaryResults();
-    if (!summary || summary.length === 0) return 0;
+    // Get unique features from ALL test results, not just summary
+    const allUniqueFeatures = new Set<string>();
     
-    const uniqueFeatures = new Set(summary.map((row: any) => row.feature));
-    return uniqueFeatures.size;
-  }
-
-  getFrequentFeaturesCount(): number {
-    const summary = this.summaryResults();
-    if (!summary || summary.length === 0) return 0;
-    
-    // Count occurrences of each feature
-    const featureCounts: { [key: string]: number } = {};
-    summary.forEach((row: any) => {
-      const feature = row.feature;
-      if (feature) {
-        featureCounts[feature] = (featureCounts[feature] || 0) + 1;
-      }
-    });
-    
-    // Count features that appear in more than 2 tests
-    return Object.values(featureCounts).filter(count => count > 2).length;
-  }
-
-  getBivariateTestCount(): number {
-    const summary = this.summaryResults();
-    if (!summary || summary.length === 0) return 0;
-    
-    const bivariateTests = new Set(
-      summary
-        .filter((row: any) => row.method_type === 'bivariate')
-        .map((row: any) => row.method)
-    );
-    return bivariateTests.size;
-  }
-
-  getMultivariateTestCount(): number {
-    const summary = this.summaryResults();
-    if (!summary || summary.length === 0) return 0;
-    
-    const multivariateTests = new Set(
-      summary
-        .filter((row: any) => row.method_type === 'multivariate')
-        .map((row: any) => row.method)
-    );
-    return multivariateTests.size;
-  }
-
-  private clearAllPlots() {
-    // Clear summary plot
-    if (this.summaryFeaturePlot?.nativeElement) {
-      this.plotlyService.purge(this.summaryFeaturePlot.nativeElement);
-    }
-    
-    // Clear other plots by finding and purging plot containers
-    const plotContainers = document.querySelectorAll('[id^="manhattan-plot-"], [id^="feature-plot-"], [id^="boruta-boxplot-"], [id^="volcano-plot-"]');
-    plotContainers.forEach(container => {
-      if (container instanceof HTMLElement) {
-        this.plotlyService.purge(container);
-      }
-    });
-  }
-
-  private createSummaryPlot() {
-    // Enhanced debugging for data analysis
-    console.log('[SUMMARY PLOT DEBUG] Starting createSummaryPlot');
-    console.log('[SUMMARY PLOT DEBUG] Selected section:', this.selectedSection);
-    console.log('[SUMMARY PLOT DEBUG] Element available:', !!this.summaryFeaturePlot?.nativeElement);
-    
-    if (!this.summaryFeaturePlot?.nativeElement) {
-      console.warn('[SUMMARY PLOT DEBUG] Summary feature plot element not found - this should not happen with the new template structure');
-      return;
-    }
-
-    const summaryData = this.summaryResults();
-    console.log('[SUMMARY PLOT DEBUG] Summary data:', summaryData);
-    console.log('[SUMMARY PLOT DEBUG] Summary data length:', summaryData?.length || 0);
-    console.log('[SUMMARY PLOT DEBUG] Sample summary data (first 3 items):', summaryData?.slice(0, 3));
-    
-    // Check if plot already exists to avoid duplicate creation
-    const plotElement = this.summaryFeaturePlot.nativeElement;
-    if (plotElement.hasChildNodes()) {
-      console.log('[SUMMARY PLOT DEBUG] Summary plot already exists, clearing it first');
-      this.plotlyService.purge(plotElement);
-    }
-
-    if (!summaryData || summaryData.length === 0) {
-      console.log('[SUMMARY PLOT DEBUG] No summary data available - showing placeholder in plot area');
-      plotElement.innerHTML = `
-        <div style="height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f59e0b; text-align: center; background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 8px;">
-          <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
-          <h4 style="margin: 0 0 8px 0; color: #374151;">Dati di Riepilogo Non Disponibili</h4>
-          <p style="margin: 0; color: #6b7280;">L'analisi non ha prodotto dati di riepilogo sufficienti per il grafico delle feature</p>
-        </div>
-      `;
-      return;
-    }
-
-    console.log('[SUMMARY PLOT DEBUG] Creating summary feature frequency plot with data:', summaryData.length, 'features');
-    console.log('[SUMMARY PLOT DEBUG] Calling plotlyService.createSummaryFeatureFrequencyPlot');
-
-    this.plotlyService.createSummaryFeatureFrequencyPlot(
-      this.summaryFeaturePlot.nativeElement,
-      summaryData,
-      {
-        title: 'Features Selezionate in Multipli Test (>2 test)',
-        minTestCount: 2,
-        featureColumn: 'feature',
-        methodColumn: 'method',
-        methodTypeColumn: 'method_type'
-      }
-    ).then(result => {
-      console.log('[SUMMARY PLOT DEBUG] Plot creation successful:', result);
-    }).catch(error => {
-      console.error('[SUMMARY PLOT DEBUG] Error creating summary plot:', error);
-      console.log('[SUMMARY PLOT DEBUG] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        summaryDataSample: summaryData?.slice(0, 2)
+    // Get all bivariate tests and their data
+    const bivariateTests = this.getBivariateTests();
+    for (const testName of bivariateTests) {
+      const testData = this.getTestData(testName);
+      testData.forEach((row: any) => {
+        // Look for feature/variable/gene column
+        const feature = row.variable || row.Variable || row.feature || row.gene;
+        if (feature && typeof feature === 'string') {
+          allUniqueFeatures.add(feature);
+        }
       });
-      
-      // Show error message in the plot area
-      plotElement.innerHTML = `
-        <div style="height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ef4444; text-align: center; background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px;">
-          <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-          <h4 style="margin: 0 0 8px 0; color: #dc2626;">Errore nella Creazione del Grafico</h4>
-          <p style="margin: 0; color: #b91c1c; font-size: 14px;">${error.message}</p>
-        </div>
-      `;
-    });
+    }
+    
+    // Get all multivariate tests and their data
+    const multivariateTests = this.getMultivariateTests();
+    for (const testName of multivariateTests) {
+      const testData = this.getTestData(testName);
+      testData.forEach((row: any) => {
+        // Look for feature/variable/gene column
+        const feature = row.variable || row.Variable || row.feature || row.gene;
+        if (feature && typeof feature === 'string') {
+          allUniqueFeatures.add(feature);
+        }
+      });
+    }
+    
+    return allUniqueFeatures.size;
   }
+
+  // All summary methods and functionality removed as requested
 }

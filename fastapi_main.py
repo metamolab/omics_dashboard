@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field, field_validator, ValidationError
 import subprocess
 import json
 import os
@@ -12,13 +12,15 @@ import sys
 import logging
 import platform
 import asyncio
-from typing import Optional, Dict, Any, List
+import traceback
+from typing import Optional, Dict, Any, List, Literal
 from datetime import datetime
+from enum import Enum
 import aiofiles
 
-# Windows compatibility for asyncio, roba per compatibilità con Windows in locale
+# Compatibilità Windows per asyncio, roba per compatibilità con Windows in locale
 if platform.system() == "Windows":
-    # Set the event loop policy to avoid subprocess issues on Windows
+    # Imposta la policy del loop di eventi per evitare problemi subprocess su Windows
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # Logger per vedere l'output di R nella console, come era per Plumber
@@ -40,16 +42,16 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],  # Angular dev port
+    allow_origins=["http://localhost:4200"],  # Porta dev Angular
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global storage (temporaneo?)
+# Storage globale (temporaneo?)
 analysis_storage: Dict[str, Dict[str, Any]] = {}
 
-# modelli Pydantic per check dell'input
+# Modelli Pydantic per controllo dell'input
 class AnalysisStatus(BaseModel):
     status: str
 
@@ -65,42 +67,300 @@ class PreprocessingResult(BaseModel):
     message: str
     processed_file_path: Optional[str] = None
 
-# Utility functions (create da lui)
+# Enhanced Pydantic models with validation
+
+class TransformationMethodEnum(str, Enum):
+    """Allowed transformation methods - based on frontend interfaces.ts"""
+    none = "none"
+    scale = "scale"
+    center = "center"
+    standardize = "standardize"
+    log = "log"
+    log2 = "log2"
+    yeo_johnson = "yeo-johnson"
+
+class MissingValueMethodEnum(str, Enum):
+    """Allowed missing value handling methods - based on frontend interfaces.ts"""
+    none = "none"
+    mean = "mean"
+    median = "median"
+    knn5 = "knn5"
+
+class OutlierMethodEnum(str, Enum):
+    """Allowed outlier detection methods - based on frontend interfaces.ts"""
+    iqr = "iqr"
+    zscore = "zscore"
+    isolation = "isolation"
+
+class OutcomeTypeEnum(str, Enum):
+    """Allowed outcome types - based on frontend interfaces.ts"""
+    continuous = "continuous"
+    categorical = "categorical"
+    auto_detect = "auto-detect"
+
+class AnalysisTypeEnum(str, Enum):
+    """Allowed analysis types"""
+    pca = "pca"
+    plsda = "plsda"
+    boruta = "boruta"
+    student_t = "student-t"
+    limma = "limma"
+
+class PreprocessingOptions(BaseModel):
+    """Enhanced preprocessing options with validation matching frontend interfaces.ts"""
+    transformation: TransformationMethodEnum = Field(default="none", description="Data transformation method")
+    fillMissingValues: MissingValueMethodEnum = Field(default="none", description="Missing value handling")
+    removeOutliers: bool = Field(default=False, description="Whether to remove outliers")
+    outlierMethod: OutlierMethodEnum = Field(default="iqr", description="Outlier detection method")
+    removeNullValues: bool = Field(default=False, description="Whether to remove null values")
+    
+    # Column classification with validation matching frontend structure
+    columnClassification: Dict[str, Any] = Field(default_factory=dict, description="Column type classification")
+    
+    # Missing data removal options (expected by R script)
+    missingDataRemoval: Optional[Dict[str, Any]] = Field(default=None, description="Missing data removal configuration")
+    
+    # Analysis type (expected by R script)
+    analysisType: Optional[str] = Field(default=None, description="Type of analysis")
+    
+    # Session information (expected by R script)
+    sessionId: Optional[str] = Field(default=None, description="Session ID")
+    userId: Optional[str] = Field(default=None, description="User ID")
+    
+    @field_validator('columnClassification')
+    @classmethod
+    def validate_column_classification(cls, v):
+        """Validate column classification structure based on frontend ColumnClassification interface"""
+        if not isinstance(v, dict):
+            raise ValueError("columnClassification must be a dictionary")
+        
+        # Check required keys exist if provided - based on frontend interfaces.ts
+        allowed_keys = {
+            'idColumn', 'outcomeColumn', 'covariateColumns', 'omicsColumns', 
+            'categoricalColumns', 'outcomeType'  # Frontend structure
+        }
+        for key in v.keys():
+            if key not in allowed_keys:
+                raise ValueError(f"Invalid column classification key: {key}")
+        
+        # Validate ID column (can be null for row indices)
+        if 'idColumn' in v:
+            if v['idColumn'] is not None and not isinstance(v['idColumn'], str):
+                raise ValueError("idColumn must be a string or null")
+        
+        # Validate outcome column (can be empty string initially)
+        if 'outcomeColumn' in v:
+            if not isinstance(v['outcomeColumn'], str):
+                raise ValueError("outcomeColumn must be a string")
+        
+        # Validate covariate columns
+        if 'covariateColumns' in v:
+            if not isinstance(v['covariateColumns'], list):
+                raise ValueError("covariateColumns must be a list")
+        
+        # Validate omics columns
+        if 'omicsColumns' in v:
+            if not isinstance(v['omicsColumns'], list):
+                raise ValueError("omicsColumns must be a list")
+        
+        # Validate categorical columns
+        if 'categoricalColumns' in v:
+            if not isinstance(v['categoricalColumns'], list):
+                raise ValueError("categoricalColumns must be a list")
+        
+        # Validate outcome type
+        if 'outcomeType' in v and v['outcomeType']:
+            valid_outcome_types = {'continuous', 'categorical', 'auto-detect'}
+            if v['outcomeType'] not in valid_outcome_types:
+                raise ValueError(f"outcomeType must be one of {valid_outcome_types}")
+        
+        return v
+    
+    @field_validator('missingDataRemoval')
+    @classmethod
+    def validate_missing_data_removal(cls, v):
+        """Validate missing data removal options"""
+        if v is not None:
+            if not isinstance(v, dict):
+                raise ValueError("missingDataRemoval must be a dictionary")
+            
+            # Validate structure expected by R script
+            allowed_keys = {'enabled', 'threshold', 'columnsToRemove'}
+            for key in v.keys():
+                if key not in allowed_keys:
+                    raise ValueError(f"Invalid missingDataRemoval key: {key}")
+            
+            if 'enabled' in v and not isinstance(v['enabled'], bool):
+                raise ValueError("missingDataRemoval.enabled must be a boolean")
+            
+            if 'threshold' in v and not isinstance(v['threshold'], (int, float)):
+                raise ValueError("missingDataRemoval.threshold must be a number")
+                
+            if 'columnsToRemove' in v and not isinstance(v['columnsToRemove'], list):
+                raise ValueError("missingDataRemoval.columnsToRemove must be a list")
+        
+        return v
+    
+    @field_validator('removeOutliers')
+    @classmethod
+    def validate_outlier_settings(cls, v, info):
+        """Basic validation for outlier removal setting"""
+        # The outlierMethod enum validation handles the method validation
+        # This validator can be simplified or removed since enum handles validation
+        return v
+
+class MultivariateMethodConfig(BaseModel):
+    """Configuration for multivariate analysis methods (Ridge, Lasso, ElasticNet)"""
+    enabled: bool = Field(default=False)
+    lambdaSelection: Literal['automatic', 'manual'] = Field(default='automatic')
+    lambdaRange: Optional[Dict[str, float]] = Field(default=None)
+    metric: Literal['rmse', 'rsquared', 'accuracy', 'auc', 'f1', 'kappa'] = Field(default='rmse')
+    lambdaRule: Literal['min', '1se'] = Field(default='min')
+    includeCovariates: bool = Field(default=False)
+
+class RandomForestConfig(BaseModel):
+    """Configuration for Random Forest analysis"""
+    enabled: bool = Field(default=False)
+    ntree: Literal[100, 500, 1000] = Field(default=100)
+    mtrySelection: Literal['automatic', 'tuning', 'manual'] = Field(default='automatic')
+    mtryValue: int = Field(default=1, ge=1)
+    includeCovariates: bool = Field(default=False)
+
+class BorutaConfig(BaseModel):
+    """Configuration for Boruta feature selection"""
+    enabled: bool = Field(default=False)
+    ntree: Literal[100, 500, 1000] = Field(default=100)
+    mtrySelection: Literal['automatic', 'manual'] = Field(default='automatic')
+    mtryValue: int = Field(default=1, ge=1)
+    maxRuns: int = Field(default=100, ge=1, le=1000)
+    roughFixTentativeFeatures: bool = Field(default=False)
+    includeCovariates: bool = Field(default=False)
+
+class RFEConfig(BaseModel):
+    """Configuration for Recursive Feature Elimination"""
+    enabled: bool = Field(default=False)
+    metric: Literal['rmse', 'rsquared', 'accuracy', 'auc', 'f1', 'kappa'] = Field(default='rmse')
+    subsetSizeType: Literal['automatic', 'custom'] = Field(default='automatic')
+    customSubsetSizes: Optional[str] = Field(default=None)
+    includeCovariates: bool = Field(default=False)
+
+class MultivariateAnalysisConfig(BaseModel):
+    """Configuration for all multivariate analysis methods"""
+    ridge: MultivariateMethodConfig = Field(default_factory=MultivariateMethodConfig)
+    lasso: MultivariateMethodConfig = Field(default_factory=MultivariateMethodConfig)
+    elasticNet: MultivariateMethodConfig = Field(default_factory=MultivariateMethodConfig)
+    randomForest: RandomForestConfig = Field(default_factory=RandomForestConfig)
+    boruta: BorutaConfig = Field(default_factory=BorutaConfig)
+    rfe: RFEConfig = Field(default_factory=RFEConfig)
+
+class AnalysisOptions(BaseModel):
+    """Enhanced analysis options with comprehensive validation"""
+    sessionId: Optional[str] = Field(default=None, description="Session ID")
+    userId: Optional[str] = Field(default=None, description="User ID")
+    groupingMethod: Literal['none', 'tertiles', 'threshold'] = Field(default='none')
+    thresholdValues: Optional[List[float]] = Field(default=None, description="Threshold values for grouping")
+    statisticalTests: List[str] = Field(default_factory=list, description="List of statistical tests to perform")
+    linearRegression: bool = Field(default=False)
+    linearRegressionWithoutInfluentials: bool = Field(default=False)
+    multivariateAnalysis: MultivariateAnalysisConfig = Field(default_factory=MultivariateAnalysisConfig)
+    clusteringMethod: Optional[str] = Field(default=None)
+    customAnalysis: Optional[Dict[str, Any]] = Field(default=None)
+    analysisType: Optional[Literal['regression', 'classification']] = Field(default=None)
+    
+    @field_validator('statisticalTests')
+    @classmethod
+    def validate_statistical_tests(cls, v):
+        """Validate statistical test names"""
+        valid_tests = {
+            'student-t', 'welch-t', 'wilcoxon', 'anova', 'welch-anova', 'kruskal-wallis', 
+            'pearson', 'spearman', 'linearregression'
+        }
+        for test in v:
+            if test not in valid_tests:
+                raise ValueError(f"Invalid statistical test: {test}. Valid tests: {valid_tests}")
+        return v
+    
+    @field_validator('thresholdValues')
+    @classmethod
+    def validate_threshold_values(cls, v, info):
+        """Validate threshold values based on grouping method"""
+        if info.data.get('groupingMethod') == 'threshold':
+            if not v or len(v) < 2:
+                raise ValueError("Threshold values required for threshold grouping method")
+            if len(v) > 2:
+                raise ValueError("Maximum 2 threshold values allowed")
+        return v
+
+
+class FileUploadRequest(BaseModel):
+    """Validation for file upload metadata"""
+    userId: str = Field(..., min_length=1, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    sessionId: str = Field(..., min_length=1, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    filename: Optional[str] = Field(None, max_length=255)
+    
+    @field_validator('filename')
+    @classmethod
+    def validate_filename(cls, v):
+        """Validate filename for security"""
+        if v:
+            import re
+            # Check for path traversal attempts
+            if '..' in v or '/' in v or '\\' in v:
+                raise ValueError("Invalid filename: path traversal not allowed")
+            # Check for suspicious extensions
+            if v.lower().endswith(('.exe', '.bat', '.cmd', '.scr', '.pif')):
+                raise ValueError("Invalid file type")
+        return v
+
+class AnalysisRequest(BaseModel):
+    """Enhanced analysis request validation"""
+    sessionId: str = Field(..., min_length=1, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    userId: str = Field(..., min_length=1, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    preprocessingOptions: PreprocessingOptions
+    analysisOptions: AnalysisOptions
+    
+    class Config:
+        # Enable validation on assignment
+        validate_assignment = True
+        # Use enum values instead of names
+        use_enum_values = True
+
+# Funzioni di utilità (create da lui)
 def create_temp_directory() -> str:
-    """Create a temporary directory for file processing"""
+    """Crea una directory temporanea per l'elaborazione dei file"""
     return tempfile.mkdtemp()
 
 def create_user_session_directory(user_id: str, session_id: str) -> str:
-    """Create a persistent directory for user session data"""
-    # Create directory name combining userId and sessionId
+    """Crea una directory persistente per i dati della sessione utente"""
+    # Crea il nome della directory combinando userId e sessionId
     dir_name = f"{user_id}_{session_id}"
     
-    # Create the full path in the project directory
+    # Crea il percorso completo nella directory del progetto
     project_dir = os.path.dirname(os.path.abspath(__file__))
     session_dir = os.path.join(project_dir, "user_sessions", dir_name)
     
-    # Create directory if it doesn't exist
+    # Crea la directory se non esiste
     os.makedirs(session_dir, exist_ok=True)
     
     return session_dir
 
 def cleanup_temp_directory(temp_dir: str):
-    """Clean up temporary directory"""
+    """Pulisce la directory temporanea"""
     try:
         shutil.rmtree(temp_dir)
     except Exception as e:
         print(f"Warning: Failed to cleanup temp directory {temp_dir}: {e}")
 
 def save_session_options(session_dir: str, preprocessing_options: dict, analysis_options: dict = None):
-    """Save session options to files for future reference"""
+    """Salva le opzioni della sessione nei file per riferimento futuro"""
     try:
-        # Save preprocessing options
+        # Salva le opzioni di preprocessing
         preprocessing_file = os.path.join(session_dir, "preprocessing_options.json")
         with open(preprocessing_file, 'w', encoding='utf-8') as f:
             json.dump(preprocessing_options, f, indent=2, ensure_ascii=False)
         logger.info(f"Saved preprocessing options to {preprocessing_file}")
         
-        # Save analysis options if provided
+        # Salva le opzioni di analisi se fornite
         if analysis_options:
             analysis_file = os.path.join(session_dir, "analysis_options.json")
             with open(analysis_file, 'w', encoding='utf-8') as f:
@@ -112,20 +372,20 @@ def save_session_options(session_dir: str, preprocessing_options: dict, analysis
         raise Exception(f"Failed to save session options: {e}")
 
 async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 1800) -> Dict[str, Any]:
-    """Run R script with given arguments and return parsed JSON result"""
+    """Esegue uno script R con argomenti dati e restituisce il risultato JSON parsato"""
     temp_file_path = None
     try:
         
-        # Create a temporary file for arguments to avoid JSON escaping issues
+        # Crea un file temporaneo per gli argomenti per evitare problemi di escape JSON
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as temp_args_file:
             json.dump(args, temp_args_file, indent=2, ensure_ascii=False)
             temp_file_path = temp_args_file.name
         
-        # Verify the temp file was written correctly
+        # Verifica che il file temporaneo sia stato scritto correttamente
         if not os.path.exists(temp_file_path):
             raise Exception(f"Failed to create temporary arguments file: {temp_file_path}")
         
-        # Log the temp file content for debugging
+        # Registra il contenuto del file temporaneo per debug
         try:
             with open(temp_file_path, 'r', encoding='utf-8') as f:
                 temp_content = f.read()
@@ -133,17 +393,17 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
         except Exception as e:
             logger.warning(f"Could not verify temp file content: {e}")
         
-        # Get absolute path to R script
+        # Ottieni il percorso assoluto dello script R
         project_dir = os.path.dirname(os.path.abspath(__file__))
         script_path = os.path.join(project_dir, script_name)
         
         if not os.path.exists(script_path):
             raise FileNotFoundError(f"R script not found: {script_path}")
         
-        # Windows-compatible subprocess execution
+        # Esecuzione subprocess compatibile con Windows
         import platform
         if platform.system() == "Windows":
-            # Use subprocess.run with asyncio.to_thread for Windows compatibility
+            # Usa subprocess.run con asyncio.to_thread per compatibilità Windows
             import subprocess
             from functools import partial
             
@@ -156,14 +416,14 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
                 )
                 return result
             
-            # Run in thread to avoid blocking
+            # Esegui in thread per evitare il blocco
             result = await asyncio.to_thread(run_r_sync)
             stdout_text = result.stdout
             stderr_text = result.stderr
             returncode = result.returncode
             
         else:
-            # Unix/Linux systems - use asyncio subprocess
+            # Sistemi Unix/Linux - usa subprocess asyncio
             proc = await asyncio.create_subprocess_exec(
                 "Rscript", script_path, temp_file_path,
                 stdout=asyncio.subprocess.PIPE,
@@ -172,7 +432,7 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
             
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             
-            # Decode output with error handling
+            # Decodifica l'output con gestione degli errori
             try:
                 stdout_text = stdout.decode('utf-8')
             except UnicodeDecodeError:
@@ -185,13 +445,13 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
                 
             returncode = proc.returncode
         
-        # Print R script diagnostics to console for debugging
+        # Stampa la diagnostica dello script R nella console per debug
         if stderr_text:
             print(f"\n=== R SCRIPT DIAGNOSTICS ({script_name}) ===", flush=True)
             print(stderr_text, flush=True)
             print("=== END R SCRIPT DIAGNOSTICS ===\n", flush=True)
             
-            # Also log using logger for better visibility
+            # Registra anche usando logger per migliore visibilità
             logger.info(f"R Script {script_name} diagnostics:\n{stderr_text}")
         
         if returncode != 0:
@@ -203,12 +463,12 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
             )
         
         try:
-            # Try to parse as JSON
+            # Prova a parsare come JSON
             result = json.loads(stdout_text)
             logger.info(f"Successfully parsed R script output for {script_name}")
             return result
         except json.JSONDecodeError as e:
-            # Provide detailed error information
+            # Fornisce informazioni dettagliate sull'errore
             logger.error(f"JSON parsing failed for {script_name}:")
             logger.error(f"JSON Error: {e}")
             logger.error(f"Stdout length: {len(stdout_text)}")
@@ -242,7 +502,7 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
         logger.error(f"Exception repr: {repr(e)}")
         logger.error(f"Full traceback:\n{error_details}")
         
-        # Try different ways to get error info
+        # Prova diversi modi per ottenere info sull'errore
         if hasattr(e, 'args') and e.args:
             logger.error(f"Exception args: {e.args}")
         
@@ -252,7 +512,7 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
             detail=error_msg
         )
     finally:
-        # Cleanup temporary arguments file
+        # Pulisce il file temporaneo degli argomenti
         if temp_file_path and os.path.exists(temp_file_path):
             try:
                 os.unlink(temp_file_path)
@@ -260,7 +520,7 @@ async def run_r_script(script_name: str, args: Dict[str, Any], timeout: int = 18
             except Exception as e:
                 logger.warning(f"Failed to cleanup temp args file: {e}")
 
-# API Endpoints
+# Endpoint API
 @app.get("/")
 def read_root():
     return {
@@ -269,7 +529,6 @@ def read_root():
         "status": "running"
     }
 
-# Per inviare opzioni di preprocessing e il file preprocessato
 @app.post("/preprocess")
 async def preprocess_file(
     file: UploadFile = File(...),
@@ -277,45 +536,85 @@ async def preprocess_file(
     userId: str = Form(...),
     sessionId: str = Form(...)
 ):
-    """Preprocess file e opzioni caricate"""
+    """Preprocess file with enhanced validation"""
     
-    # Parse opzioni di preprocessing
+    logger.info(f"Preprocessing request received - userId: {userId}, sessionId: {sessionId}, filename: {file.filename}")
+    
+    # Validate file upload request
     try:
-        preprocessing_options = json.loads(options)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid preprocessing options JSON")
+        upload_request = FileUploadRequest(
+            userId=userId,
+            sessionId=sessionId,
+            filename=file.filename
+        )
+        logger.info("File upload request validation passed")
+    except ValidationError as e:
+        logger.error(f"File upload validation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid request: {e}")
     
-    # Create cartella dell'utente per la sessione (sarà da cambiare in produzione)
+    # Parse and validate preprocessing options
+    try:
+        logger.info(f"Parsing preprocessing options: {options[:100]}...")  # Log first 100 chars
+        preprocessing_options_dict = json.loads(options)
+        preprocessing_options = PreprocessingOptions(**preprocessing_options_dict)
+        logger.info("Preprocessing options validation passed")
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid preprocessing options JSON")
+    except ValidationError as e:
+        logger.error(f"Preprocessing options validation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid preprocessing options: {e}")
+    
+    # Validate file type
+    if file.filename:
+        allowed_extensions = {'.csv', '.tsv', '.txt', '.xlsx', '.xls'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file type {file_ext}. Allowed types: {', '.join(allowed_extensions)}"
+            )
+    
+    # Read file content once
+    content = await file.read()
+    
+    # Crea cartella dell'utente per la sessione
     session_dir = create_user_session_directory(userId, sessionId)
     
     try:
-        # Save uploaded file with original name
+        # Salva il file caricato con il nome originale
         input_file_path = os.path.join(session_dir, f"original_{file.filename}")
         async with aiofiles.open(input_file_path, 'wb') as f:
-            content = await file.read()
             await f.write(content)
         
-        # Save preprocessing options for future reference
-        save_session_options(session_dir, preprocessing_options)
+        # Convert Pydantic model to dict for R script
+        preprocessing_options_dict = preprocessing_options.dict()
         
-        # Prepare arguments for R preprocessing script
+        # Add sessionId and userId that R script expects
+        preprocessing_options_dict['sessionId'] = sessionId
+        preprocessing_options_dict['userId'] = userId
+        
+        # Salva le opzioni di preprocessing per riferimento futuro
+        save_session_options(session_dir, preprocessing_options_dict)
+        
+        # Prepara gli argomenti per lo script R di preprocessing
         r_args = {
             "input_file": input_file_path,
-            "output_dir": session_dir,  # Usa cartella persistente invece di temp
-            "options": preprocessing_options
+            "output_dir": session_dir,
+            "options": preprocessing_options_dict
         }
         
-        #Lancio R script per preprocessing
-        result = await run_r_script("preprocess.R", r_args, timeout=900)  # 15 minutes timeout for preprocessing
+        # Lancia lo script R per preprocessing
+        result = await run_r_script("preprocess.R", r_args, timeout=900)
         
-        #Controllo di successo
+        # Controllo di successo
         if not result.get("success", False):
             raise HTTPException(
                 status_code=500,
                 detail=f"Preprocessing fallito: {result.get('message', 'Unknown error')}"
             )
         
-        # Restituisci file
+        # Restituisci il file
         processed_file_path = result.get("processed_file_path")
         if processed_file_path and os.path.exists(processed_file_path):
             return FileResponse(
@@ -332,7 +631,7 @@ async def preprocess_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-#Lancia l'analisi 
+# Lancia l'analisi 
 @app.post("/analyze", response_model=AnalysisResult)
 async def submit_analysis(
     background_tasks: BackgroundTasks,
@@ -342,34 +641,72 @@ async def submit_analysis(
     preprocessingOptions: str = Form(...),
     analysisOptions: str = Form(...)
 ):
-    """Invia la richiesta di analisi e restituisce l'ID dell'analisi"""
+    """Submit analysis with enhanced validation"""
 
-    # Parse options
+    # Validate basic request parameters
     try:
-        preprocessing_opts = json.loads(preprocessingOptions)
-        analysis_opts = json.loads(analysisOptions)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Opzioni JSON non valide")
+        upload_request = FileUploadRequest(
+            userId=userId,
+            sessionId=sessionId,
+            filename=file.filename
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid request: {e}")
 
-    # Create analysis ID
+    # Parse and validate options
+    try:
+        preprocessing_opts_dict = json.loads(preprocessingOptions)
+        analysis_opts_dict = json.loads(analysisOptions)
+        
+        # Validate using Pydantic models
+        preprocessing_opts = PreprocessingOptions(**preprocessing_opts_dict)
+        analysis_opts = AnalysisOptions(**analysis_opts_dict)
+        
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid options JSON format")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid options: {e}")
+
+    # Validate file type
+    if file.filename:
+        allowed_extensions = {'.csv', '.tsv', '.txt', '.xlsx', '.xls'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file type {file_ext}. Allowed types: {', '.join(allowed_extensions)}"
+            )
+
+    # Crea l'ID dell'analisi
     analysis_id = f"{userId}_{sessionId}"
     
-    # Initialize analysis storage
+    # Check for duplicate analysis
+    if analysis_id in analysis_storage:
+        existing_status = analysis_storage[analysis_id].get("status")
+        if existing_status in ["pending", "running"]:
+            raise HTTPException(
+                status_code=409, 
+                detail="Analysis already in progress for this session"
+            )
+    
+    # Inizializza lo storage dell'analisi
     analysis_storage[analysis_id] = {
         "id": analysis_id,
         "status": "pending",
         "results": None,
         "error": None,
-        "timestamp": datetime.now()
+        "timestamp": datetime.now(),
+        "user_id": userId,
+        "session_id": sessionId
     }
     
-    # Start background analysis
+    # Avvia l'analisi in background
     background_tasks.add_task(
         perform_analysis,
         analysis_id,
         file,
-        preprocessing_opts,
-        analysis_opts
+        preprocessing_opts.dict(),  # Convert to dict for R script
+        analysis_opts.dict()       # Convert to dict for R script
     )
     
     return AnalysisResult(
@@ -386,22 +723,22 @@ async def perform_analysis(
 ):
     """Effettua l'analisi in background"""
     
-    # Extract userId and sessionId from analysis_id
+    # Estrae userId e sessionId dall'analysis_id
     user_id, session_id = analysis_id.split('_', 1)
     
-    # Use persistent user session directory
+    # Usa la directory persistente della sessione utente
     session_dir = create_user_session_directory(user_id, session_id)
     
-    # Read file content immediately to avoid file closure issues
+    # Legge immediatamente il contenuto del file per evitare problemi di chiusura file
     try:
-        # Check if file is still readable
+        # Controlla se il file è ancora leggibile
         if hasattr(file, 'file') and file.file.closed:
             logger.warning(f"File {file.filename} is already closed, trying to reopen from session")
-            # Try to find the file in the session directory instead
+            # Prova a trovare il file nella directory della sessione invece
             if os.path.exists(session_dir):
                 session_files = [f for f in os.listdir(session_dir) if f.startswith('original_') or f.startswith('processed_')]
                 if session_files:
-                    # Use the most recent file
+                    # Usa il file più recente
                     most_recent_file = max(session_files, key=lambda f: os.path.getmtime(os.path.join(session_dir, f)))
                     existing_file_path = os.path.join(session_dir, most_recent_file)
                     logger.info(f"Using existing file from session: {existing_file_path}")
@@ -412,13 +749,13 @@ async def perform_analysis(
             else:
                 raise Exception("Session directory does not exist and uploaded file is closed")
         else:
-            # Try to read the file normally
+            # Prova a leggere il file normalmente
             try:
                 file_content = await file.read()
                 logger.info(f"Read {len(file_content)} bytes from uploaded file for analysis {analysis_id}")
             except Exception as read_error:
                 logger.warning(f"Failed to read uploaded file, trying to use existing session file: {read_error}")
-                # Fallback to session file
+                # Fallback al file della sessione
                 if os.path.exists(session_dir):
                     session_files = [f for f in os.listdir(session_dir) if f.startswith('original_') or f.startswith('processed_')]
                     if session_files:
@@ -442,14 +779,14 @@ async def perform_analysis(
         return
     
     try:
-        # Update status to running
+        # Aggiorna lo status a running
         analysis_storage[analysis_id]["status"] = "running"
         logger.info(f"Analysis {analysis_id} started")
         
-        # Save uploaded file content
+        # Salva il contenuto del file caricato
         input_file_path = os.path.join(session_dir, f"analysis_{file.filename}")
         
-        # Write the file content that we already read
+        # Scrive il contenuto del file che abbiamo già letto
         try:
             async with aiofiles.open(input_file_path, 'wb') as f:
                 await f.write(file_content)
@@ -459,24 +796,24 @@ async def perform_analysis(
         
         logger.info(f"File saved to: {input_file_path}")
         
-        # Salva opzioni di analisi 
+        # Salva le opzioni di analisi 
         save_session_options(session_dir, preprocessing_options, analysis_options)
         
-        # Prepara gli args per lo script R
+        # Prepara gli argomenti per lo script R
         r_args = {
             "input_file": input_file_path,
-            "output_dir": session_dir,  # Use persistent directory
+            "output_dir": session_dir,  # Usa directory persistente
             "preprocessing_options": preprocessing_options,
             "analysis_options": analysis_options,
             "analysis_id": analysis_id
         }
         
-        # Lancia script R per l'analisi
+        # Lancia lo script R per l'analisi
         logger.info(f"Starting R script execution for analysis {analysis_id}")
-        result = await run_r_script("analysis.R", r_args, timeout=3600)  # 1 hour timeout (increased from 10 minutes)
+        result = await run_r_script("analysis.R", r_args, timeout=3600)  # timeout di 1 ora (aumentato da 10 minuti)
         logger.info(f"R script completed for analysis {analysis_id}")
         
-        # salva risultati dell'analisi
+        # Salva i risultati dell'analisi
         results_file = os.path.join(session_dir, "analysis_results.json")
         logger.info(f"Saving results to: {results_file}")
         
@@ -519,9 +856,9 @@ async def perform_analysis(
 
 @app.get("/status/{analysis_id}", response_model=AnalysisResult)
 def get_analysis_status(analysis_id: str):
-    """Ottieni status dell'analisi con informazioni complete"""
+    """Ottieni lo status dell'analisi con informazioni complete"""
     
-    # First check if analysis is in memory storage
+    # Prima controlla se l'analisi è nel memory storage
     if analysis_id in analysis_storage:
         analysis_data = analysis_storage[analysis_id]
         return AnalysisResult(
@@ -532,15 +869,27 @@ def get_analysis_status(analysis_id: str):
             timestamp=analysis_data["timestamp"]
         )
     
-    # If not in memory, try to load from file system
+    # Se non in memoria, prova a caricare dal file system
     try:
-        # Parse analysis_id to get user_id and session_id
+        # Parsa analysis_id per ottenere user_id e session_id
         if "_" in analysis_id:
             user_id, session_id = analysis_id.split("_", 1)
         else:
-            # Fallback for legacy format
-            user_id = "MasterTest"
+            # For plain UUIDs, assume it's a session ID and try to find the corresponding user session
+            # First try to find any session directory that ends with this session ID
             session_id = analysis_id
+            user_id = None
+            
+            # Look for existing session directories
+            if os.path.exists("user_sessions"):
+                for session_dir_name in os.listdir("user_sessions"):
+                    if session_dir_name.endswith(f"_{session_id}"):
+                        user_id = session_dir_name.split("_")[0]
+                        break
+            
+            # If not found, default to MasterTest for backward compatibility
+            if not user_id:
+                user_id = "MasterTest"
         
         session_dir = create_user_session_directory(user_id, session_id)
         results_file = os.path.join(session_dir, "analysis_results.json")
@@ -610,9 +959,21 @@ def get_analysis_results(analysis_id: str):
         if "_" in analysis_id:
             user_id, session_id = analysis_id.split("_", 1)
         else:
-            # Fallback for legacy format
-            user_id = "MasterTest"
+            # For plain UUIDs, assume it's a session ID and try to find the corresponding user session
+            # First try to find any session directory that ends with this session ID
             session_id = analysis_id
+            user_id = None
+            
+            # Look for existing session directories
+            if os.path.exists("user_sessions"):
+                for session_dir_name in os.listdir("user_sessions"):
+                    if session_dir_name.endswith(f"_{session_id}"):
+                        user_id = session_dir_name.split("_")[0]
+                        break
+            
+            # If not found, default to MasterTest for backward compatibility
+            if not user_id:
+                user_id = "MasterTest"
         
         session_dir = create_user_session_directory(user_id, session_id)
         results_file = os.path.join(session_dir, "analysis_results.json")
@@ -737,17 +1098,17 @@ async def test_r_integration():
 # Test per l'endpoint (autoprodotto da GPT)
 @app.get("/test")
 def test_connectivity():
-    """Simple test endpoint for frontend connectivity"""
+    """Endpoint di test semplice per la connettività frontend"""
     return {
         "success": True,
         "message": "FastAPI backend is running and accessible",
         "timestamp": datetime.now()
     }
 
-# Get previous analyses from user sessions
+# Ottieni le analisi precedenti dalle sessioni utente
 @app.get("/analyses")
 def get_previous_analyses():
-    """Get list of previous analyses from user sessions folder"""
+    """Ottieni la lista delle analisi precedenti dalla cartella user sessions"""
     try:
         user_sessions_dir = "user_sessions"
         analyses = []
@@ -755,17 +1116,17 @@ def get_previous_analyses():
         if not os.path.exists(user_sessions_dir):
             return analyses
         
-        # Scan through user session directories
+        # Scansiona le directory delle sessioni utente
         for session_folder in os.listdir(user_sessions_dir):
             session_path = os.path.join(user_sessions_dir, session_folder)
             if os.path.isdir(session_path):
-                # Check if this session has analysis data
+                # Controlla se questa sessione ha dati di analisi
                 original_file_path = None
                 processed_file_path = None
                 preprocessing_options_path = None
                 results_file_path = None
                 
-                # Look for key files in the session
+                # Cerca i file chiave nella sessione
                 for file in os.listdir(session_path):
                     if file.startswith("original_"):
                         original_file_path = os.path.join(session_path, file)
@@ -775,17 +1136,17 @@ def get_previous_analyses():
                         preprocessing_options_path = os.path.join(session_path, file)
                     elif file in ["analysis_results.json", "complete_results.json", "results.json"]:
                         results_file_path = os.path.join(session_path, file)
-                        # Also check for any analysis-processed CSV files which indicate completion
+                        # Controlla anche eventuali file CSV di analisi processata che indicano completamento
                     elif file.startswith("analysis_processed_") and file.endswith(".csv"):
-                        # This indicates the analysis was completed and processed
-                        if not results_file_path:  # Only set if we don't have a JSON results file
+                        # Questo indica che l'analisi è stata completata e processata
+                        if not results_file_path:  # Imposta solo se non abbiamo un file di risultati JSON
                             results_file_path = os.path.join(session_path, file)
                 
-                if original_file_path:  # Only include sessions with data
-                    # Extract dataset name from original file
+                if original_file_path:  # Include solo sessioni con dati
+                    # Estrae il nome del dataset dal file originale
                     dataset_name = os.path.basename(original_file_path).replace("original_", "")
                     
-                    # Determine analysis status
+                    # Determina lo status dell'analisi
                     status = "pending"
                     analysis_type = "Unknown"
                     description = None
@@ -853,7 +1214,7 @@ def get_previous_analyses():
 # Debug endpoint per vedere tutte le analisi
 @app.get("/debug/analyses")
 def debug_all_analyses():
-    """Debug endpoint to see all current analyses"""
+    """Endpoint di debug per vedere tutte le analisi correnti"""
     return {
         "total_analyses": len(analysis_storage),
         "analyses": {
@@ -868,10 +1229,10 @@ def debug_all_analyses():
         }
     }
 
-# Get preprocessing options from user sessions
+# Ottieni le opzioni di preprocessing dalle sessioni utente
 @app.get("/preprocessing-options")
 def get_preprocessing_options():
-    """Get available preprocessing options from all user sessions"""
+    """Ottieni le opzioni di preprocessing disponibili da tutte le sessioni utente"""
     try:
         user_sessions_dir = "user_sessions"
         preprocessing_options = []
@@ -1040,102 +1401,203 @@ def get_preprocessing_option_by_id(session_id: str):
         logger.error(f"Error getting preprocessing options for session {session_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving preprocessing options: {str(e)}")
 
-# Get available files from user sessions
+# Get available files from my_files directory instead of user sessions
 @app.get("/session-files")
 def get_session_files():
-    """Get available files from all user sessions"""
+    """Get available files from my_files directory"""
     try:
-        user_sessions_dir = "user_sessions"
+        # Changed from user_sessions to my_files directory
+        my_files_dir = "my_files"
         files = []
         
-        if not os.path.exists(user_sessions_dir):
+        if not os.path.exists(my_files_dir):
             return files
         
-        # Scan through user session directories
-        for session_folder in os.listdir(user_sessions_dir):
-            session_path = os.path.join(user_sessions_dir, session_folder)
-            if os.path.isdir(session_path):
+        # Scan through my_files directory
+        for file in os.listdir(my_files_dir):
+            file_path = os.path.join(my_files_dir, file)
+            
+            # Include only actual files (not directories) and skip README and .gitignore
+            if os.path.isfile(file_path) and not file.startswith('.') and file.lower() != 'readme.md':
                 
-                # Look for original files only
-                for file in os.listdir(session_path):
-                    file_path = os.path.join(session_path, file)
+                try:
+                    file_stats = os.stat(file_path)
+                    file_size = file_stats.st_size
+                    last_modified = datetime.fromtimestamp(file_stats.st_mtime)
                     
-                    # Include only original files
-                    if file.startswith("original_"):
-                        
-                        try:
-                            file_stats = os.stat(file_path)
-                            file_size = file_stats.st_size
-                            last_modified = datetime.fromtimestamp(file_stats.st_mtime)
-                            
-                            # Process original files
-                            display_name = file.replace("original_", "")
-                            file_type = "original"
-                            description = f"File originale da sessione {session_folder}"
-                            
-                            file_info = {
-                                "id": f"{session_folder}_{file}",
-                                "name": display_name,
-                                "originalName": file,
-                                "size": file_size,
-                                "lastModified": last_modified.isoformat(),
-                                "path": file_path,
-                                "sessionId": session_folder,
-                                "fileType": file_type,
-                                "description": description
-                            }
-                            
-                            files.append(file_info)
-                            
-                        except Exception as e:
-                            logger.warning(f"Error reading file {file_path}: {e}")
-                            continue
+                    # Generate a unique ID for each file
+                    file_id = f"my_files_{file}"
+                    
+                    file_info = {
+                        "id": file_id,
+                        "name": file,
+                        "originalName": file,
+                        "size": file_size,
+                        "lastModified": last_modified.isoformat(),
+                        "path": file_path,
+                        "sessionId": "my_files",  # Use a fixed sessionId for compatibility
+                        "fileType": "original",
+                        "description": f"File disponibile da repository: {file}"
+                    }
+                    
+                    files.append(file_info)
+                    
+                except Exception as e:
+                    logger.warning(f"Error reading file {file_path}: {e}")
+                    continue
         
-        # Sort by last modified date (newest first)
-        files.sort(key=lambda x: x["lastModified"], reverse=True)
+        # Sort by filename for consistent ordering
+        files.sort(key=lambda x: x["name"])
         
-        logger.info(f"Found {len(files)} session files")
+        logger.info(f"Found {len(files)} files in my_files directory")
         return files
         
     except Exception as e:
-        logger.error(f"Error getting session files: {e}")
-        raise HTTPException(status_code=500, detail=f"Error retrieving session files: {str(e)}")
+        logger.error(f"Error getting files from my_files directory: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving files: {str(e)}")
 
-# Get specific file content from session
+# COMMENTATO: Vecchio endpoint session-files che usava user_sessions
+# @app.get("/session-files")
+# def get_session_files():
+#     """Get available files from all user sessions"""
+#     try:
+#         user_sessions_dir = "user_sessions"
+#         files = []
+#         
+#         if not os.path.exists(user_sessions_dir):
+#             return files
+#         
+#         # Scan through user session directories
+#         for session_folder in os.listdir(user_sessions_dir):
+#             session_path = os.path.join(user_sessions_dir, session_folder)
+#             if os.path.isdir(session_path):
+#                 
+#                 # Look for original files only
+#                 for file in os.listdir(session_path):
+#                     file_path = os.path.join(session_path, file)
+#                     
+#                     # Include only original files
+#                     if file.startswith("original_"):
+#                         
+#                         try:
+#                             file_stats = os.stat(file_path)
+#                             file_size = file_stats.st_size
+#                             last_modified = datetime.fromtimestamp(file_stats.st_mtime)
+#                             
+#                             # Process original files
+#                             display_name = file.replace("original_", "")
+#                             file_type = "original"
+#                             description = f"File originale da sessione {session_folder}"
+#                             
+#                             file_info = {
+#                                 "id": f"{session_folder}_{file}",
+#                                 "name": display_name,
+#                                 "originalName": file,
+#                                 "size": file_size,
+#                                 "lastModified": last_modified.isoformat(),
+#                                 "path": file_path,
+#                                 "sessionId": session_folder,
+#                                 "fileType": file_type,
+#                                 "description": description
+#                             }
+#                             
+#                             files.append(file_info)
+#                             
+#                         except Exception as e:
+#                             logger.warning(f"Error reading file {file_path}: {e}")
+#                             continue
+#         
+#         # Sort by last modified date (newest first)
+#         files.sort(key=lambda x: x["lastModified"], reverse=True)
+#         
+#         logger.info(f"Found {len(files)} session files")
+#         return files
+#         
+#     except Exception as e:
+#         logger.error(f"Error getting session files: {e}")
+#         raise HTTPException(status_code=500, detail=f"Error retrieving session files: {str(e)}")
+
+# Get specific file content from my_files directory
 @app.get("/session-files/{session_id}/{filename}")
 def get_session_file(session_id: str, filename: str):
-    """Get specific file content from a session"""
+    """Get specific file content from my_files directory or user sessions (for compatibility)"""
     try:
-        user_sessions_dir = "user_sessions"
-        session_path = os.path.join(user_sessions_dir, session_id)
-        file_path = os.path.join(session_path, filename)
+        # If session_id is "my_files", serve from my_files directory
+        if session_id == "my_files":
+            my_files_dir = "my_files"
+            file_path = os.path.join(my_files_dir, filename)
+            
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=404, detail="File not found in my_files directory")
+            
+            # Security check: ensure file is within my_files directory
+            if not os.path.abspath(file_path).startswith(os.path.abspath(my_files_dir)):
+                raise HTTPException(status_code=403, detail="Access denied")
+            
+            # Return file as response
+            return FileResponse(
+                file_path,
+                media_type='application/octet-stream',
+                filename=filename
+            )
         
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        # Security check: ensure file is within session directory
-        if not os.path.abspath(file_path).startswith(os.path.abspath(session_path)):
-            raise HTTPException(status_code=403, detail="Access denied")
-        
-        # Return file as response
-        return FileResponse(
-            file_path,
-            media_type='application/octet-stream',
-            filename=filename
-        )
+        # COMMENTATO: Serving legacy user_sessions files (mantenuto per compatibilità con ripristino analisi esistenti)
+        # Per compatibilità con funzionalità di ripristino analisi esistenti che potrebbero ancora riferirsi a user_sessions
+        else:
+            user_sessions_dir = "user_sessions"
+            session_path = os.path.join(user_sessions_dir, session_id)
+            file_path = os.path.join(session_path, filename)
+            
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=404, detail="File not found")
+            
+            # Security check: ensure file is within session directory
+            if not os.path.abspath(file_path).startswith(os.path.abspath(session_path)):
+                raise HTTPException(status_code=403, detail="Access denied")
+            
+            # Return file as response
+            return FileResponse(
+                file_path,
+                media_type='application/octet-stream',
+                filename=filename
+            )
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting session file {session_id}/{filename}: {e}")
+        logger.error(f"Error getting file {session_id}/{filename}: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving file: {str(e)}")
+
+# Global exception handlers for validation
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request, exc: ValidationError):
+    """Handle Pydantic validation errors globally"""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Validation Error",
+            "errors": exc.errors(),
+            "message": "Invalid input data. Please check your request parameters."
+        }
+    )
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request, exc: ValueError):
+    """Handle value errors from validation"""
+    return JSONResponse(
+        status_code=400,
+        content={
+            "detail": "Invalid Value",
+            "message": str(exc)
+        }
+    )
 
 if __name__ == "__main__":
     import uvicorn
     import socket
     
     def find_free_port(start_port=8000, max_attempts=10):
-        """Find a free port starting from start_port"""
+        """Trova una porta libera partendo da start_port"""
         for port in range(start_port, start_port + max_attempts):
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

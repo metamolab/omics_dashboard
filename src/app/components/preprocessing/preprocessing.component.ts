@@ -931,7 +931,8 @@ export class PreprocessingComponent implements OnInit {
         
         try {
           // Extract sessionId and filename from the remote path
-          // Expected remotePath format: "user_sessions\{sessionId}\{filename}" (Windows) or "user_sessions/{sessionId}/{filename}" (Unix)
+          // NEW: Handle my_files directory format: "my_files/filename" or "my_files\filename"
+          // LEGACY: Handle user_sessions format: "user_sessions\{sessionId}\{filename}" (Windows) or "user_sessions/{sessionId}/{filename}" (Unix)
           console.log('[PREPROCESSING] Original remotePath:', fileData.remotePath);
           
           // Normalize path separators to work with both Windows and Unix paths
@@ -940,23 +941,34 @@ export class PreprocessingComponent implements OnInit {
           console.log('[PREPROCESSING] Normalized path:', normalizedPath);
           console.log('[PREPROCESSING] Path parts:', pathParts);
           
-          // Find the sessionId - it should be after "user_sessions"
           let sessionId = '';
           let filename = '';
           
-          const userSessionsIndex = pathParts.findIndex(part => part === 'user_sessions');
-          if (userSessionsIndex !== -1 && userSessionsIndex < pathParts.length - 2) {
-            sessionId = pathParts[userSessionsIndex + 1]; // Next part after "user_sessions"
+          // Check if this is a my_files path
+          const myFilesIndex = pathParts.findIndex(part => part === 'my_files');
+          if (myFilesIndex !== -1) {
+            // Handle my_files directory format
+            sessionId = 'my_files';
             filename = pathParts[pathParts.length - 1]; // Last part is the filename
+            console.log('[PREPROCESSING] Detected my_files format:', { sessionId, filename });
           } else {
-            // Fallback: assume last two parts are sessionId and filename
-            if (pathParts.length >= 2) {
-              sessionId = pathParts[pathParts.length - 2];
-              filename = pathParts[pathParts.length - 1];
+            // LEGACY: Handle user_sessions format for compatibility
+            const userSessionsIndex = pathParts.findIndex(part => part === 'user_sessions');
+            if (userSessionsIndex !== -1 && userSessionsIndex < pathParts.length - 2) {
+              sessionId = pathParts[userSessionsIndex + 1]; // Next part after "user_sessions"
+              filename = pathParts[pathParts.length - 1]; // Last part is the filename
+              console.log('[PREPROCESSING] Detected user_sessions format:', { sessionId, filename });
+            } else {
+              // Fallback: assume last two parts are sessionId and filename
+              if (pathParts.length >= 2) {
+                sessionId = pathParts[pathParts.length - 2];
+                filename = pathParts[pathParts.length - 1];
+                console.log('[PREPROCESSING] Using fallback format:', { sessionId, filename });
+              }
             }
           }
           
-          console.log('[PREPROCESSING] Extracted:', { sessionId, filename });
+          console.log('[PREPROCESSING] Final extracted values:', { sessionId, filename });
           
           if (!sessionId || !filename) {
             console.error('[PREPROCESSING] Failed to extract sessionId and filename. PathParts:', pathParts);
@@ -1562,13 +1574,22 @@ export class PreprocessingComponent implements OnInit {
           let sessionId = '';
           let filename = '';
           
-          const userSessionsIndex = normalizedParts.findIndex(part => part === 'user_sessions');
-          if (userSessionsIndex !== -1 && userSessionsIndex < normalizedParts.length - 2) {
-            sessionId = normalizedParts[userSessionsIndex + 1];
+          // Check if this is a my_files path
+          const myFilesIndex = normalizedParts.findIndex(part => part === 'my_files');
+          if (myFilesIndex !== -1) {
+            // Handle my_files directory format
+            sessionId = 'my_files';
             filename = normalizedParts[normalizedParts.length - 1];
-          } else if (normalizedParts.length >= 2) {
-            sessionId = normalizedParts[normalizedParts.length - 2];
-            filename = normalizedParts[normalizedParts.length - 1];
+          } else {
+            // LEGACY: Handle user_sessions format for compatibility
+            const userSessionsIndex = normalizedParts.findIndex(part => part === 'user_sessions');
+            if (userSessionsIndex !== -1 && userSessionsIndex < normalizedParts.length - 2) {
+              sessionId = normalizedParts[userSessionsIndex + 1];
+              filename = normalizedParts[normalizedParts.length - 1];
+            } else if (normalizedParts.length >= 2) {
+              sessionId = normalizedParts[normalizedParts.length - 2];
+              filename = normalizedParts[normalizedParts.length - 1];
+            }
           }
           
           if (!sessionId || !filename) {

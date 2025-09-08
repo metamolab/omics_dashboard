@@ -48,7 +48,7 @@ interface PreviousAnalysis {
     <div class="upload-container">
       <div class="page-header">
         <h1>Selezione Origine Dati</h1>
-        <p>Scegli la fonte dei tuoi dati o recupera un'analisi precedente</p>
+        <p>Seleziona un file dal repository o recupera un'analisi precedente</p>
       </div>
 
       <!-- Step 1: Choose Data Source -->
@@ -57,18 +57,20 @@ interface PreviousAnalysis {
           <h2>Seleziona la Fonte dei Dati</h2>
           
           <div class="source-options">
-            <!-- Option 1: Upload new file -->
+            <!-- Option 1: Upload new file - DISABLED -->
+            <!-- 
             <div class="source-option" (click)="selectDataSource('upload')">
               <div class="option-icon">📤</div>
               <h3>Carica Nuovo File</h3>
               <p>Carica un file CSV, Excel o JSON dal tuo computer</p>
             </div>
+            -->
 
-            <!-- Option 2: Browse remote files -->
+            <!-- Option 2: Browse repository files -->
             <div class="source-option" (click)="selectDataSource('remote')">
               <div class="option-icon">🗂️</div>
-              <h3>Seleziona File Esistente</h3>
-              <p>Scegli un file originale da una sessione precedente</p>
+              <h3>Seleziona File dal Repository</h3>
+              <p>Scegli un file disponibile dal repository di dati</p>
             </div>
 
             <!-- Option 3: Recover previous analysis -->
@@ -81,7 +83,8 @@ interface PreviousAnalysis {
         </div>
       }
 
-      <!-- Step 2a: Upload new file -->
+      <!-- Step 2a: Upload new file - DISABLED -->
+      <!-- 
       @if (currentStep() === 'upload') {
         <div class="upload-section">
           <div class="step-header">
@@ -135,20 +138,21 @@ interface PreviousAnalysis {
           </div>
         </div>
       }
+      -->
 
       <!-- Step 2b: Browse remote files -->
       @if (currentStep() === 'remote-browse') {
         <div class="remote-section">
           <div class="step-header">
             <button class="back-btn" (click)="goBack()">← Indietro</button>
-            <h2>Seleziona File Esistente</h2>
+            <h2>Seleziona File dal Repository</h2>
           </div>
 
           <div class="remote-card">
             @if (isLoadingRemoteFiles()) {
               <div class="loading-state">
                 <div class="spinner"></div>
-                <p>Caricamento file originali dalle sessioni utente...</p>
+                <p>Caricamento file disponibili dal repository...</p>
               </div>
             } @else if (remoteFilesError()) {
               <div class="error-state">
@@ -159,14 +163,14 @@ interface PreviousAnalysis {
             } @else {
               <div class="file-browser">
                 <div class="browser-header">
-                  <h3>File Originali delle Sessioni Utente</h3>
+                  <h3>File Disponibili nel Repository</h3>
                   <button class="refresh-btn" (click)="loadRemoteFiles()">🔄 Aggiorna</button>
                 </div>
                 
                 @if (remoteFiles().length === 0) {
                   <div class="empty-state">
-                    <p>Nessun file originale trovato nelle sessioni utente</p>
-                    <p class="empty-subtitle">I file originali delle sessioni precedenti appariranno qui</p>
+                    <p>Nessun file trovato nel repository</p>
+                    <p class="empty-subtitle">I file disponibili per l'analisi appariranno qui</p>
                   </div>
                 } @else {
                   <div class="file-list">
@@ -184,8 +188,10 @@ interface PreviousAnalysis {
                           <span class="file-description">{{ file.description }}</span>
                           <span class="file-meta">
                             {{ formatFileSize(file.size) }} • 
-                            {{ formatDate(file.lastModified) }} • 
-                            Sessione: {{ file.sessionId }}
+                            {{ formatDate(file.lastModified) }}
+                            @if (file.sessionId !== 'my_files') {
+                              • Sessione: {{ file.sessionId }}
+                            }
                           </span>
                         </div>
                         @if (selectedRemoteFile()?.id === file.id) {
@@ -1765,21 +1771,31 @@ export class FileUploadComponent implements OnInit {
     // Load existing file data if returning to this step
     const existingFile = this.dataFlowService.fileData();
     if (existingFile) {
-      this.selectedFile.set(existingFile);
-      // If we have existing data, skip to preprocessing choice
-      this.currentStep.set('preprocessing-choice');
-      this.dataSource.set('upload');
+      // If it's a remote file or recovery, allow it
+      if (existingFile.isRemote || this.dataFlowService.isRecoveryMode()) {
+        this.selectedFile.set(existingFile);
+        this.currentStep.set('preprocessing-choice');
+        this.dataSource.set(existingFile.isRemote ? 'remote' : 'recovery');
+      } else {
+        // Clear uploaded file data since upload is disabled
+        this.dataFlowService.setFileData(null);
+        console.log('Cleared uploaded file data - upload functionality is disabled');
+      }
     }
   }
 
   // Step navigation methods
   selectDataSource(source: 'upload' | 'remote' | 'recovery') {
+    // Disable upload functionality
+    if (source === 'upload') {
+      alert('File upload is currently disabled. Please use an existing file from a previous session or recover a previous analysis.');
+      return;
+    }
+    
     this.dataSource.set(source);
     this.stepHistory.push('source-selection');
     
-    if (source === 'upload') {
-      this.currentStep.set('upload');
-    } else if (source === 'remote') {
+    if (source === 'remote') {
       this.currentStep.set('remote-browse');
       this.loadRemoteFiles();
     } else if (source === 'recovery') {
@@ -1849,15 +1865,15 @@ export class FileUploadComponent implements OnInit {
           this.isLoadingRemoteFiles.set(false);
         },
         error: (error: any) => {
-          // console.error('[UPLOAD] Error loading session files:', error);
-          this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file di sessione');
+          // console.error('[UPLOAD] Error loading repository files:', error);
+          this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file dal repository');
           this.isLoadingRemoteFiles.set(false);
         }
       });
       
     } catch (error: any) {
       // console.error('[UPLOAD] Exception in loadRemoteFiles:', error);
-      this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file di sessione');
+      this.remoteFilesError.set(error.message || 'Errore nel caricamento dei file dal repository');
       this.isLoadingRemoteFiles.set(false);
     }
   }
@@ -1865,18 +1881,18 @@ export class FileUploadComponent implements OnInit {
   selectRemoteFile(file: RemoteFile) {
     this.selectedRemoteFile.set(file);
     
-    // console.log('[UPLOAD] Selected session file:', file);
+    // console.log('[UPLOAD] Selected file from my_files:', file);
     
     // Create a FileData object for compatibility with existing flow
     const fileData: FileData = {
-      file: null as any, // Will be loaded from session when needed
+      file: null as any, // Will be loaded from my_files when needed
       fileName: file.name,
       fileSize: file.size,
       uploadDate: new Date(),
       remotePath: file.path,
       isRemote: true,
-      sessionId: file.sessionId,
-      userId: file.sessionId.split('_')[0] // Extract userId from sessionId format
+      sessionId: file.sessionId, // This will be "my_files" for files from my_files directory
+      userId: this.sessionService.getUserId() // Use authenticated user ID from session service
     };
     
     // When selecting a remote file for reprocessing (not recovery), 
@@ -1886,7 +1902,7 @@ export class FileUploadComponent implements OnInit {
     this.dataFlowService.setFileData(fileData);
     this.navigationService.updateNavigationStatus();
     
-    // console.log('[UPLOAD] Set file data for session file:', {
+    // console.log('[UPLOAD] Set file data for my_files file:', {
     //   fileName: fileData.fileName,
     //   sessionId: fileData.sessionId,
     //   userId: fileData.userId,
@@ -2142,6 +2158,8 @@ export class FileUploadComponent implements OnInit {
     }
   }
 
+  // File upload methods - DISABLED
+  /*
   triggerFileInput() {
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     fileInput?.click();
@@ -2191,6 +2209,7 @@ export class FileUploadComponent implements OnInit {
     this.dataFlowService.setFileData(null as any);
     this.navigationService.updateNavigationStatus();
   }
+  */
 
   formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
@@ -2206,5 +2225,96 @@ export class FileUploadComponent implements OnInit {
     if (this.selectedFile() || this.selectedRemoteFile()) {
       this.navigationService.navigateToStep('preprocessing');
     }
+  }
+
+  testButton() {
+    console.log('Testing Cineca login API...');
+    
+    this.apiService.login('carossi', 'CaAlRoCNR_2025', '000000').subscribe({
+      next: (response) => {
+        console.log('Login successful:', response);
+        console.log('Saved username:', this.apiService.getUsername());
+        console.log('Saved access token:', this.apiService.getAccessToken());
+        console.log('Is authenticated:', this.apiService.isAuthenticated());
+        
+        alert(`Login successful! 
+Username: ${this.apiService.getUsername()}
+Has Token: ${!!this.apiService.getAccessToken()}
+Check console for full details.`);
+      },
+      error: (error) => {
+        console.error('Login failed:', error);
+        alert(`Login failed: ${error.message || 'Unknown error'}`);
+      }
+    });
+  }
+
+  testStatusButton() {
+    console.log('Testing Cineca status API...');
+    
+    if (!this.apiService.isAuthenticated()) {
+      alert('Not authenticated! Please login first using the "Test Login" button.');
+      return;
+    }
+    
+    console.log('Using access token:', this.apiService.getAccessToken());
+    
+    this.apiService.getStatus().subscribe({
+      next: (response) => {
+        console.log('Status API successful:', response);
+        alert(`Status API successful! Check console for details.`);
+      },
+      error: (error) => {
+        console.error('Status API failed:', error);
+        console.error('Error headers:', error.headers);
+        alert(`Status API failed: ${error.message || 'Unknown error'}\nCheck console for full details.`);
+      }
+    });
+  }
+
+  testUsersButton() {
+    console.log('Testing Cineca users API...');
+    
+    if (!this.apiService.isAuthenticated()) {
+      alert('Not authenticated! Please login first using the "Test Login" button.');
+      return;
+    }
+    
+    console.log('Using access token:', this.apiService.getAccessToken());
+    
+    this.apiService.getUsers().subscribe({
+      next: (response) => {
+        console.log('Users API successful:', response);
+        alert(`Users API successful! Check console for details.`);
+      },
+      error: (error) => {
+        console.error('Users API failed:', error);
+        console.error('Error headers:', error.headers);
+        alert(`Users API failed: ${error.message || 'Unknown error'}\nCheck console for full details.`);
+      }
+    });
+  }
+
+  testFilesButton() {
+    console.log('Testing Cineca uploaded files API...');
+    
+    if (!this.apiService.isAuthenticated()) {
+      alert('Not authenticated! Please login first using the "Test Login" button.');
+      return;
+    }
+    
+    console.log('Using access token:', this.apiService.getAccessToken());
+    
+    this.apiService.getUploadedFiles().subscribe({
+      next: (response) => {
+        console.log('Uploaded Files API successful:', response);
+        alert(`Uploaded Files API successful! Check console for details.`);
+      },
+      error: (error) => {
+        console.error('Uploaded Files API failed:', error);
+        console.error('Error headers:', error.headers);
+        alert(`Uploaded Files API failed: ${error.message || 'Unknown error'}\nCheck console for full details.`);
+      }
+    });
   }
 }

@@ -701,6 +701,19 @@ export class PlotlyService {
     layout?: any, 
     config?: any
   ): Promise<any> {
+    // Check if Plotly is available
+    if (typeof Plotly === 'undefined') {
+      console.error('[PLOTLY DEBUG] Plotly is not loaded!');
+      return Promise.reject(new Error('Plotly library is not loaded'));
+    }
+    
+    console.log('[PLOTLY DEBUG] Creating plot with:', {
+      hasElement: !!element,
+      dataLength: data?.length,
+      layoutTitle: layout?.title?.text || layout?.title,
+      plotlyAvailable: typeof Plotly !== 'undefined'
+    });
+
     const defaultLayout = {
       margin: { t: 40, r: 40, b: 40, l: 40 },
       font: { family: 'Arial, sans-serif' },
@@ -717,7 +730,16 @@ export class PlotlyService {
       ...config
     };
 
-    return Plotly.newPlot(element, data, defaultLayout, defaultConfig);
+    console.log('[PLOTLY DEBUG] About to call Plotly.newPlot');
+    return Plotly.newPlot(element, data, defaultLayout, defaultConfig)
+      .then((result: any) => {
+        console.log('[PLOTLY DEBUG] Plotly.newPlot successful:', result);
+        return result;
+      })
+      .catch((error: any) => {
+        console.error('[PLOTLY DEBUG] Plotly.newPlot failed:', error);
+        throw error;
+      });
   }
 
   updatePlot(element: HTMLElement, data: any[], layout?: any): Promise<any> {
@@ -895,161 +917,13 @@ export class PlotlyService {
   }
 
   /**
-   * Summary Feature Frequency Plot
-   * Horizontal stacked bar chart showing features selected in multiple tests
-   * Only includes features that appear in more than 2 tests
+   * Normalize method names to standard form for consistent display
    */
-  createSummaryFeatureFrequencyPlot(
-    element: HTMLElement,
-    summaryData: any[],
-    options?: {
-      title?: string;
-      minTestCount?: number;
-      featureColumn?: string;
-      methodColumn?: string;
-      methodTypeColumn?: string;
-    }
-  ): Promise<any> {
-    const featureColumn = options?.featureColumn || 'feature';
-    const methodColumn = options?.methodColumn || 'method';
-    const methodTypeColumn = options?.methodTypeColumn || 'method_type';
-    const minTestCount = options?.minTestCount || 2;
-
-    if (!summaryData || summaryData.length === 0) {
-      element.innerHTML = `
-        <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #ef4444;">
-          <p>No summary data available for feature frequency plot</p>
-        </div>
-      `;
-      return Promise.resolve();
-    }
-
-    // Count occurrences of each feature across all methods
-    const featureCounts: { [key: string]: number } = {};
-    summaryData.forEach(row => {
-      const feature = row[featureColumn];
-      if (feature) {
-        featureCounts[feature] = (featureCounts[feature] || 0) + 1;
-      }
-    });
-
-    // Filter features that appear in more than minTestCount tests
-    const frequentFeatures = Object.keys(featureCounts)
-      .filter(feature => featureCounts[feature] > minTestCount)
-      .sort((a, b) => featureCounts[b] - featureCounts[a]); // Sort by frequency descending
-
-    if (frequentFeatures.length === 0) {
-      element.innerHTML = `
-        <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f59e0b; text-align: center;">
-          <p style="margin: 8px 0; font-size: 16px; font-weight: 500;">No features found in more than ${minTestCount} tests</p>
-          <p style="margin: 4px 0; font-size: 14px;">Total unique features: ${Object.keys(featureCounts).length}</p>
-          <p style="margin: 4px 0; font-size: 14px;">Consider lowering the minimum test count threshold</p>
-        </div>
-      `;
-      return Promise.resolve();
-    }
-
-    // Group data by method type and method for stacking
-    const methodTypes = ['bivariate', 'multivariate'];
-    const bivariateMethodColors: { [key: string]: string } = {
-      'student-t': '#3b82f6',
-      'welch-t': '#1d4ed8',
-      'wilcoxon': '#1e40af',
-      'anova': '#7c3aed',
-      'welch-anova': '#6d28d9',
-      'kruskal-wallis': '#5b21b6',
-      'pearson': '#22c55e',
-      'spearman': '#16a34a',
-      'linearregression': '#059669'
-    };
-
-    const multivariateMethodColors: { [key: string]: string } = {
-      'ridge': '#f59e0b',
-      'lasso': '#d97706',
-      'elasticNet': '#c2410c',
-      'randomForest': '#dc2626',
-      'boruta': '#b91c1c',
-      'rfe': '#991b1b'
-    };
-
-    // Create traces for each method
-    const allMethods = [...Object.keys(bivariateMethodColors), ...Object.keys(multivariateMethodColors)];
-    const traces: any[] = [];
-
-    allMethods.forEach(method => {
-      const methodData = summaryData.filter(row => row[methodColumn] === method);
-      const featureMethodCounts = frequentFeatures.map(feature => {
-        return methodData.filter(row => row[featureColumn] === feature).length;
-      });
-
-      // Only add trace if this method has at least one occurrence
-      if (featureMethodCounts.some(count => count > 0)) {
-        const isBivariate = Object.keys(bivariateMethodColors).includes(method);
-        const color = isBivariate ? bivariateMethodColors[method] : multivariateMethodColors[method];
-
-        traces.push({
-          type: 'bar',
-          orientation: 'h',
-          name: method,
-          x: featureMethodCounts,
-          y: frequentFeatures,
-          marker: {
-            color: color,
-            opacity: 0.8
-          },
-          hovertemplate: `<b>%{y}</b><br>Method: ${method}<br>Count: %{x}<extra></extra>`,
-          showlegend: true
-        });
-      }
-    });
-
-    // Calculate total counts for sorting (already sorted above, but let's add text annotations)
-    const totalCounts = frequentFeatures.map(feature => featureCounts[feature]);
-
-    const layout = {
-      title: options?.title || `Features Selected in Multiple Tests (>${minTestCount} tests)`,
-      xaxis: {
-        title: 'Number of Tests Selecting Feature',
-        showgrid: true,
-        gridcolor: '#e2e8f0'
-      },
-      yaxis: {
-        title: '',
-        showgrid: false,
-        automargin: true,
-        type: 'category'
-      },
-      barmode: 'stack',
-      margin: { l: 200, r: 40, t: 80, b: 60 },
-      font: { family: 'Arial, sans-serif' },
-      plot_bgcolor: '#f8fafc',
-      paper_bgcolor: '#ffffff',
-      height: Math.max(400, Math.min(800, frequentFeatures.length * 25 + 150)),
-      showlegend: true,
-      legend: {
-        orientation: 'h',
-        yanchor: 'bottom',
-        y: 1.02,
-        xanchor: 'right',
-        x: 1,
-        bgcolor: 'rgba(255,255,255,0.8)',
-        bordercolor: 'rgba(0,0,0,0.2)',
-        borderwidth: 1
-      },
-      annotations: frequentFeatures.map((feature, index) => ({
-        x: totalCounts[index] + 0.1,
-        y: feature,
-        text: `${totalCounts[index]}`,
-        showarrow: false,
-        font: {
-          color: '#374151',
-          size: 10,
-          family: 'Arial, sans-serif'
-        },
-        xanchor: 'left'
-      }))
-    };
-
-    return this.createPlot(element, traces, layout);
+  private normalizeMethodName(methodName: string): string {
+    // Since the user confirmed the exact method names, we don't need complex normalization
+    // Just return the method name as-is since they're already in the correct format
+    return methodName;
   }
+
+  // Summary plot methods removed with summary functionality  
 }
